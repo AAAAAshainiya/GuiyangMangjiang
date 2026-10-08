@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {create,player,act,options,tick,view} from '../lib/game.ts';
-function table(){const r=create('ABCDEFGH','0','我');r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));r.phase='play';r.turn=1;r.wall=[4,5,6];return r}
+function table(){const r=create('ABCDEFGH','0','我');r.scoringVersion=2;r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));r.phase='play';r.turn=1;r.wall=[4,5,6];return r}
 function pengTurn(){
  const r=table();r.players[0].hand=[0,0,1,2,3,9,10,11,18,19,20,22,22];r.players[1].hand=[0];
  act(r,1,'discard',0,1000);assert.deepEqual(options(r,0),['peng','pass']);act(r,0,'peng',undefined,1100);return r;

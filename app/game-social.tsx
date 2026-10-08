@@ -34,35 +34,35 @@ export function ChatPanel({room,onUpdate,onBubbles,onPick}:{room:any,onUpdate:(d
 }
 export function ScoreOverview({room}:{room:any}){
  const result=room.result;
- return <><table className="score-overview"><thead><tr><th>牌友</th><th>胡</th><th>豆</th><th>鸡</th><th>合计</th></tr></thead><tbody>{room.players.map((p:any,i:number)=>{
+ return <>{result.huParts?.length>0&&<p className="hu-breakdown">{result.huParts.map((p:any)=>`${p.name} ${p.points}`).join(' ＋ ')} ＝ {result.huValues[result.winner]} 分。{result.from<0?`三家各付 ${result.huPayable} 分。`:`${room.players[result.from].name}付 ${result.huPayable} 分。`}{result.hotPenalty>0&&`其中热炮额外 ${result.hotPenalty} 分；放炮者自己的鸡豆全部烧掉。`}</p>}<table className="score-overview"><thead><tr><th>牌友</th><th>胡</th><th>豆</th><th>鸡</th><th>合计</th></tr></thead><tbody>{room.players.map((p:any,i:number)=>{
   const hu=result.huValues?.[i]??(i===result.winner?result.hu[i]/(result.from<0?3:1):0);
   const bean=result.beanValues?.[i]??(p.melds.some((m:any)=>m.k==='gang')?null:0);
-  const net=result.delta[i];return <tr key={i} className={i===room.me?'your-score':''}><td>{p.name}{i===room.me&&<small>你</small>}</td><td>{hu}</td><td>{bean===null?'—':bean}</td><td>{result.values?.[i]??0}</td><td className={net>0?'positive':net<0?'negative':''}><b>{net>0?'+':''}{net}</b></td></tr>
- })}</tbody></table><p className="score-caption">胡、豆、鸡是自身分值；合计是本局实际盈亏。{result.beanRequiresReady&&'自己的豆仅在胡牌或听牌时有效；未听牌仍需付他人的有效豆分。'}{!result.beanValues&&'历史杠分基数未记录，以合计为准。'}</p></>;
+  const net=result.delta[i];return <tr key={i} className={i===room.me?'your-score':''}><td>{p.name}{i===room.me&&<small>你</small>}{result.burned?.[i]&&<small>热炮烧鸡豆</small>}</td><td>{hu}</td><td>{bean===null?'—':bean}</td><td>{result.values?.[i]??0}</td><td className={net>0?'positive':net<0?'negative':''}><b>{net>0?'+':''}{net}</b></td></tr>
+ })}</tbody></table><p className="score-caption">胡、豆、鸡是自身分值；合计是本局实际盈亏。{result.scoringVersion===3?'胡列为牌型分，热炮额外 4 分计入实际收付。只有胡牌或听牌且未放热炮者收鸡豆；其余人仍须支付有效鸡豆。':result.beanRequiresReady&&'自己的豆仅在胡牌或听牌时有效；未听牌仍需付他人的有效豆分。'}{!result.beanValues&&'历史杠分基数未记录，以合计为准。'}</p></>;
 }
 const signed=(n:number)=>(n>0?'+':'')+n;
 function huWith(result:any,me:number,other:number){
  if(result.winner<0)return 0;
- const n=result.huValues?.[result.winner]??result.hu[result.winner]/(result.from<0?3:1);
+ const n=result.huPayable??result.huValues?.[result.winner]??result.hu[result.winner]/(result.from<0?3:1);
  if(me===result.winner)return result.from<0||result.from===other?n:0;
  if(other===result.winner)return result.from<0||result.from===me?-n:0;
  return 0;
 }
 export function SettlementDetails({room}:{room:any}){
  const r=room.result,me=room.me,details=r.myChickenDetails;
- const eligible=me===r.winner||r.revealed?.[me];
+ const eligible=r.eligible?.[me]??(me===r.winner||r.revealed?.[me]),modern=r.scoringVersion===3,burned=r.burned?.[me];
  const sources:Record<string,string>={hand:'手牌',peng:'碰牌',gang:'明杠／补杠',an:'暗杠',river:'自己打出的牌'};
  const rows=room.players.map((p:any,i:number)=>{
-  const hu=huWith(r,me,i),chicken=(r.values?.[me]??0)-(r.values?.[i]??0);
+  const hu=huWith(r,me,i),chicken=r.winner<0?0:Array.isArray(r.chickenTransfers)?r.chickenTransfers.reduce((sum:number,t:any)=>sum+(t.from===i&&t.to===me?t.points:0)-(t.from===me&&t.to===i?t.points:0),0):(r.values?.[me]??0)-(r.values?.[i]??0);
   const bean=r.winner<0?0:Array.isArray(r.beanTransfers)?r.beanTransfers.reduce((sum:number,t:any)=>sum+(t.from===i&&t.to===me?t.points:0)-(t.from===me&&t.to===i?t.points:0),0):null;
   return {name:p.name,i,hu,chicken,bean,total:bean===null?null:hu+chicken+bean};
  }).filter((row:any)=>row.i!==me);
  return <details className="settlement-details"><summary>查看我的收付明细</summary><div className="settlement-body">
- <p>{r.winner<0?'流局，本局所有收付为 0。':eligible?'你已胡牌或听牌：手牌、碰杠和自己弃牌区的鸡都计分。':'你未听牌：只为自己弃牌区的鸡付分，手牌及碰杠里的鸡不罚分。'}{r.winner>=0&&r.beanRequiresReady&&(eligible?'你的杠计豆，仍需支付其他胡牌或听牌者的豆分。':'你自己的杠不计豆，但仍需支付胡牌或听牌者的豆分。')}</p>
+ <p>{r.winner<0?'流局，本局所有收付为 0。':burned?'你放了热炮：自己的手牌、碰杠、弃牌鸡和豆全部烧掉，不收分，也不为自己的弃牌鸡倒付；仍须支付其他有资格玩家的鸡豆。':eligible?'你已胡牌或听牌：手牌、碰杠和自己弃牌区的鸡都计分。':modern?'你未听牌：自己的弃牌鸡只向胡牌或听牌且未放热炮的人付分，不收其他人的弃牌鸡罚分；手牌及碰杠里的鸡不罚分。':'你未听牌：只为自己弃牌区的鸡付分，手牌及碰杠里的鸡不罚分。'}{r.winner>=0&&r.beanRequiresReady&&!burned&&(eligible?'你的杠计豆，仍需支付其他胡牌或听牌者的豆分。':'你自己的杠不计豆，但仍需支付胡牌或听牌者的豆分。')}</p>
  <h3>自己的鸡分：{r.values?.[me]??0}</h3>
  {details===null||details===undefined?<p className="detail-note">这局未记录逐张鸡分来源；以下收付按已保存的结算结果显示。</p>:details.length?<ul className="chicken-detail-list">{details.map((d:any,i:number)=><li key={i}><span>{sources[d.source]} · {tileName(d.tile)}{d.charge?'（冲锋鸡）':''}{d.tile===r.rooster?'（含翻牌鸡 +1）':''}<small>{d.count} 张 × {d.unit} 分</small></span><b>{eligible?d.points:-d.points} 分</b></li>)}</ul>:<p className="detail-note">没有计入鸡分的牌。</p>}
- <h3>与每家的收付</h3><p className="detail-note">正数是对方给你，负数是你给对方。鸡分按双方自身鸡值相减。</p>
- <table className="transfer-table"><thead><tr><th>牌友</th><th>胡</th><th>豆</th><th>鸡</th><th>合计</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row.i}><td>{row.name}<small>鸡：{r.values?.[me]??0} − ({r.values?.[row.i]??0})</small></td><td>{signed(row.hu)}</td><td>{row.bean===null?'—':signed(row.bean)}</td><td>{signed(row.chicken)}</td><td>{row.total===null?'—':signed(row.total)}</td></tr>)}</tbody></table>
+ <h3>与每家的收付</h3><p className="detail-note">正数是对方给你，负数是你给对方。{modern?'鸡分按收分资格逐家计算；热炮额外 4 分包含在实际胡分收付内。':'鸡分按双方自身鸡值相减。'}</p>
+ <table className="transfer-table"><thead><tr><th>牌友</th><th>胡</th><th>豆</th><th>鸡</th><th>合计</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row.i}><td>{row.name}<small>{modern?(r.burned?.[row.i]?'热炮 · 鸡豆烧掉':r.eligible?.[row.i]?'胡牌／听牌 · 可收鸡豆':'未听牌 · 不收鸡豆'):<>鸡：{r.values?.[me]??0} − ({r.values?.[row.i]??0})</>}</small></td><td>{signed(row.hu)}</td><td>{row.bean===null?'—':signed(row.bean)}</td><td>{signed(row.chicken)}</td><td>{row.total===null?'—':signed(row.total)}</td></tr>)}</tbody></table>
  {rows.some((row:any)=>row.bean===null)&&<p className="detail-note">这局开局时尚未记录逐家豆分，豆的实际净额仍保留在下面。</p>}
  <p className="net-equation">实际盈亏：胡 {signed(r.hu?.[me]??0)} ＋ 豆 {signed(r.beans?.[me]??0)} ＋ 鸡 {signed(r.chicken?.[me]??0)} ＝ <b>{signed(r.delta[me])}</b></p>
  </div></details>;

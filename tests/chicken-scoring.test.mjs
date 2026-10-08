@@ -5,7 +5,7 @@ const winning=[1,2,3,4,5,6,10,11,12,21,21,21,25,25];
 const waiting=winning.slice(0,-1);
 const notWaiting=[1,3,5,7,8,10,12,14,15,17,19,21,23];
 function table(){
- const r=create('ABCDEFGH','0','玩家0');
+ const r=create('ABCDEFGH','0','玩家0');r.scoringVersion=2;
  r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));
  r.phase='play';r.wall=[];r.turn=0;
  r.players.forEach(p=>p.hand=[...notWaiting]);

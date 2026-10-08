@@ -3,7 +3,7 @@ import {create,player,act,waits,start,view} from '../lib/game.ts';
 const winning=[1,2,3,4,5,6,10,11,12,21,21,21,25,25];
 const readyKong=[1,2,3,10,11,12,21,22,23,25];
 const unreadyKong=[1,3,5,10,12,14,19,21,23,25];
-function table(){const r=create('ABCDEFGH','0','我');r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));r.phase='play';r.turn=0;r.drawn=25;r.wall=[];r.players[0].hand=[...winning];return r}
+function table(){const r=create('ABCDEFGH','0','我');r.scoringVersion=2;r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));r.phase='play';r.turn=0;r.drawn=25;r.wall=[];r.players[0].hand=[...winning];return r}
 function pay(r,from,to){r.beanTransfers.push({from,to,points:4});r.beans[from]-=4;r.beans[to]+=4}
 function kong(r,i,ready,kind,from=2){r.players[i].melds=[{t:7+i,k:'gang',hidden:kind==='an'}];r.players[i].hand=[...(ready?readyKong:unreadyKong)];r.beanValues[i]=4;assert.equal(waits(r.players[i]).length>0,ready);if(kind==='ming')pay(r,from,i);else for(let j=0;j<4;j++)if(j!==i)pay(r,j,i)}
 function settle(r){act(r,0,'hu',undefined,1000);assert.equal(r.result.beanRequiresReady,true);for(const key of ['hu','beans','chicken','delta'])assert.equal(r.result[key].reduce((a,b)=>a+b),0,key+' stays zero-sum');return r.result}

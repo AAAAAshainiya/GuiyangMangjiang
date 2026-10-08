@@ -153,3 +153,5 @@ button.avatar:disabled{opacity:1;cursor:default}
 @keyframes packet-open{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}15%,50%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
 @media(max-width:580px){.self-seat .chat-controls{margin-left:3px}.self-seat .chat-toggle{font-size:14px;padding:7px 8px}.self-seat .chat-panel{left:0;width:310px;max-width:calc(100vw - 70px);max-height:min(400px,65dvh)}.chat-panel-heading label{font-size:12px}.interaction-target-prompt{bottom:77px;font-size:13px}.interaction-flight{font-size:36px}}
 @media(prefers-reduced-motion:reduce){.target-avatar:not(:disabled){animation:none}.flying-emoji{display:none}.impact-main,.impact-emoji,.impact-particles{animation:none;opacity:1;transform:translate(-50%,-50%)}.impact-particles{display:none}}
+
+.hu-breakdown{font-size:12px;line-height:1.7;color:#efd99a;margin:10px 0;padding:9px 11px;background:rgba(225,190,115,.08);border-radius:8px;overflow-wrap:anywhere}
