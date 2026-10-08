@@ -2,12 +2,14 @@
 import {useEffect,useRef,useState} from 'react';
 import {MessageCircle,Send,X,ChevronRight} from 'lucide-react';
 import {CHAT_EMOJIS,tileName} from '@/lib/game';
+import {INTERACTIONS,type InteractionKind} from '@/lib/interaction';
+import {tableRequest} from '@/lib/table-client';
 type Message={id:string,seat:number,name:string,kind:string,content:string,at:number,mine:boolean};
 export function ChatBubble({messages,seat,now,enabled}:{messages:Message[],seat:number,now:number,enabled:boolean}){
  const message=enabled?[...messages].reverse().find(m=>m.seat===seat&&now-m.at<4000&&now>=m.at-1000):null;
  return message?<div className={'chat-bubble '+(message.kind==='emoji'?'emoji-bubble':'')} role="status">{message.content}</div>:null;
 }
-export function ChatPanel({room,onUpdate,onBubbles}:{room:any,onUpdate:(data:any)=>void,onBubbles:(enabled:boolean)=>void}){
+export function ChatPanel({room,onUpdate,onBubbles,onPick}:{room:any,onUpdate:(data:any)=>void,onBubbles:(enabled:boolean)=>void,onPick?:(effect:InteractionKind)=>void}){
  const [open,setOpen]=useState(false),[draft,setDraft]=useState(''),[sending,setSending]=useState(false),[error,setError]=useState(''),[unread,setUnread]=useState(0),[bubbles,setBubbles]=useState(true),[retry,setRetry]=useState<{text:string,kind:string,id:string}|null>(null);
  const seen=useRef<Set<string>|null>(null),scroll=useRef<HTMLDivElement>(null),locked=useRef(false),lastSent=useRef(0);
  const messages:Message[]=room.messages??[];
@@ -17,12 +19,13 @@ export function ChatPanel({room,onUpdate,onBubbles}:{room:any,onUpdate:(data:any
  async function send(text:string,kind='text',id=crypto.randomUUID()){
   text=text.trim();if(!text||locked.current)return;if(Array.from(text).length>100){setError('最多发送 100 字');return}if(Date.now()-lastSent.current<1000){setError('稍等一秒再发送');return}
   locked.current=true;setSending(true);setError('');setRetry(null);
-  try{const res=await fetch('/api/table',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'chat',code:room.code,text,kind,clientId:id})});const data:any=await res.json();if(!res.ok)throw new Error(data.error||'发送失败');onUpdate(data);lastSent.current=Date.now();if(kind==='text')setDraft(current=>current.trim()===text?'':current);}
+  try{const data=await tableRequest('/api/table',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'chat',code:room.code,text,kind,clientId:id})});onUpdate(data);lastSent.current=Date.now();if(kind==='text')setDraft(current=>current.trim()===text?'':current);}
   catch(e){setError(e instanceof Error?e.message:'消息发送失败，请重试');setRetry({text,kind,id});}
   finally{locked.current=false;setSending(false)}
  }
- return <div className="chat-controls"><button className="chat-toggle" aria-expanded={open} onClick={()=>setOpen(!open)}><MessageCircle size={17}/>牌友聊天{unread>0&&!open&&<b>{unread>99?'99+':unread}</b>}</button>
- {open&&<section className="chat-panel" aria-label="房间聊天"><div className="chat-panel-heading"><strong>这桌的聊天</strong><label><input type="checkbox" checked={bubbles} onChange={e=>{setBubbles(e.target.checked);onBubbles(e.target.checked)}}/>桌面气泡</label><button aria-label="关闭聊天" onClick={()=>setOpen(false)}><X size={18}/></button></div>
+ return <div className="chat-controls"><button className="chat-toggle" aria-label="打开互动与聊天" aria-expanded={open} onClick={()=>setOpen(!open)}><MessageCircle size={17}/>互动{unread>0&&!open&&<b>{unread>99?'99+':unread}</b>}</button>
+ {open&&<section className="chat-panel" aria-label="房间互动与聊天"><div className="chat-panel-heading"><strong>互动与聊天</strong><label><input type="checkbox" checked={bubbles} onChange={e=>{setBubbles(e.target.checked);onBubbles(e.target.checked)}}/>桌面气泡</label><button aria-label="关闭聊天" onClick={()=>setOpen(false)}><X size={18}/></button></div>
+ {onPick&&<><div className="target-effects">{INTERACTIONS.map(effect=><button key={effect.id} aria-label={effect.name} onClick={()=>{onPick(effect.id);setOpen(false)}}><span>{effect.emoji}</span>{effect.name}</button>)}</div><p className="interaction-help">选表情，再点对方头像 · 间隔 3 秒</p></>}
  <div className="chat-history" ref={scroll} aria-live="polite" aria-relevant="additions">{messages.length?messages.map(m=><div key={m.id} className={'chat-message '+(m.mine?'mine':'')}><small>{m.mine?'你':m.name} · {new Date(m.at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</small><p>{m.content}</p></div>):<p className="chat-empty">和这桌的朋友打个招呼吧。</p>}</div>
  <div className="chat-emojis">{CHAT_EMOJIS.map(emoji=><button key={emoji} disabled={sending} aria-label={'发送表情 '+emoji} onClick={()=>void send(emoji,'emoji')}>{emoji}</button>)}</div>
  <div className="chat-quick">{['打得好！','等我一下','这牌怎么打'].map(text=><button key={text} disabled={sending} onClick={()=>void send(text)}>{text}</button>)}</div>

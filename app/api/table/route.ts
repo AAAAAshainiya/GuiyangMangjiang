@@ -1,29 +1,44 @@
 import { db } from '@/db';
 import { CHAT_EMOJIS, botDelay, act, create, player, start, tick, view, log, type Room } from '@/lib/game';
 export const dynamic='force-dynamic';
-const valid=(c:string)=>/^[A-Z2-9]{8}$/.test(c);
+import {interactionKind,validRoomCode as valid,roomCode} from '@/lib/interaction';
 function session(req:Request){return req.headers.get('cookie')?.match(/(?:^|; )mj_guest=([a-f0-9]{64})(?:;|$)/)?.[1]}
 function reply(data:unknown,status=200,cookie?:string){return Response.json(data,{status,headers:{'Cache-Control':'no-store',...(cookie?{'Set-Cookie':`mj_guest=${cookie}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`}:{})}})}
 function token(){return [...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toString(16).padStart(2,'0')).join('')}
 async function read(code:string){const row=await db().prepare('SELECT state, version, updated FROM mahjong_rooms WHERE code = ?').bind(code).first<{state:string,version:number,updated:number}>();if(!row||Date.now()-row.updated>7*86400000)throw new Error('房间不存在或已过期，请核对房间码');const r=JSON.parse(row.state) as Room;r.version=row.version;return r}
 async function save(r:Room){const v=r.version??0;r.version=v+1;const result=await db().prepare('UPDATE mahjong_rooms SET state = ?, version = ?, updated = ? WHERE code = ? AND version = ?').bind(JSON.stringify(r),v+1,Date.now(),r.code,v).run();return result.meta.changes===1}
-async function visible(r:Room,id:string){const rows=await db().prepare('SELECT id, sender, name, kind, content, at FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 100').bind(r.code).all<any>();return {...view(r,id),messages:rows.results.reverse().map((m:any)=>({id:m.id,seat:r.players.findIndex(p=>p.id===m.sender),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id}))}}
+async function visible(r:Room,id:string){
+ const rows=await db().prepare('SELECT id, sender, name, kind, content, at FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 140').bind(r.code).all<any>();
+ const all=rows.results.reverse(),seat=(m:any)=>r.players.findIndex(p=>p.id===m.sender);
+ const interactions=all.filter((m:any)=>m.kind==='interaction').slice(-40).flatMap((m:any)=>{try{const v=JSON.parse(m.content),target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return interactionKind(v.effect)&&Number.isInteger(target)&&target>=0&&target<r.players.length?[{id:m.id,seat:seat(m),name:m.name,effect:v.effect,target,at:m.at}]:[]}catch{return []}});
+ return {...view(r,id),messages:all.filter((m:any)=>m.kind!=='interaction').slice(-100).map((m:any)=>({id:m.id,seat:seat(m),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id})),interactions};
+}
+async function sendInteraction(r:Room,id:string,b:any,now:number){
+ const me=r.players.findIndex(p=>p.id===id&&!p.bot);if(me<0)return reply({error:'请先加入房间'},403);
+ if(!interactionKind(b.effect)||!Number.isInteger(b.target)||b.target<0||b.target>=r.players.length||b.target===me||typeof b.clientId!=='string'||!/^[a-f0-9-]{36}$/.test(b.clientId))return reply({error:'请选择一个表情和其他牌友的头像'},400);
+ const previous=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(previous)return reply(await visible(r,id));
+ const inserted=await db().prepare("INSERT INTO mahjong_chat (id, code, sender, client_id, name, kind, content, at) SELECT ?, ?, ?, ?, ?, 'interaction', ?, ? WHERE NOT EXISTS (SELECT 1 FROM mahjong_chat WHERE code = ? AND sender = ? AND kind = 'interaction' AND at > ?) ON CONFLICT(code, sender, client_id) DO NOTHING").bind(crypto.randomUUID(),r.code,id,b.clientId,r.players[me].name,JSON.stringify({effect:b.effect,target:b.target,targetId:r.players[b.target].id}),now,r.code,id,now-3000).run();
+ if(!inserted.meta.changes){const same=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(!same)return reply({error:'互动间隔至少 3 秒，请稍等'},429)}
+ await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND kind = 'interaction' AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? AND kind = 'interaction' ORDER BY at DESC, id DESC LIMIT 40)").bind(r.code,r.code).run();
+ return reply(await visible(r,id));
+}
 async function sendChat(r:Room,id:string,b:any,now:number){
  const p=r.players.find(p=>p.id===id&&!p.bot);if(!p)return reply({error:'请先加入房间'},403);
  if(typeof b.text!=='string'||typeof b.clientId!=='string'||!/^[a-f0-9-]{36}$/.test(b.clientId))return reply({error:'消息格式不正确'},400);
  const text=b.text.trim();if(!text||Array.from(text).length>100||!['text','emoji'].includes(b.kind)||b.kind==='emoji'&&!CHAT_EMOJIS.includes(text))return reply({error:'消息最多 100 字，表情请从面板选择'},400);
  const previous=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(previous)return reply(await visible(r,id));
- const inserted=await db().prepare('INSERT INTO mahjong_chat (id, code, sender, client_id, name, kind, content, at) SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM mahjong_chat WHERE code = ? AND sender = ? AND at > ?) ON CONFLICT(code, sender, client_id) DO NOTHING').bind(crypto.randomUUID(),r.code,id,b.clientId,p.name,b.kind,text,now,r.code,id,now-1000).run();
+ const inserted=await db().prepare('INSERT INTO mahjong_chat (id, code, sender, client_id, name, kind, content, at) SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM mahjong_chat WHERE code = ? AND sender = ? AND kind != \'interaction\' AND at > ?) ON CONFLICT(code, sender, client_id) DO NOTHING').bind(crypto.randomUUID(),r.code,id,b.clientId,p.name,b.kind,text,now,r.code,id,now-1000).run();
  if(!inserted.meta.changes){const same=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(!same)return reply({error:'发送太快，请稍等一秒'},429);}
- await db().prepare('DELETE FROM mahjong_chat WHERE code = ? AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 100)').bind(r.code,r.code).run();
+ await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND kind != 'interaction' AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? AND kind != 'interaction' ORDER BY at DESC, id DESC LIMIT 100)").bind(r.code,r.code).run();
  return reply(await visible(r,id));
 }
-export async function GET(req:Request){try{const id=session(req);if(!id)return reply({session:true},200,token());const code=new URL(req.url).searchParams.get('room');if(!code)return reply({session:true});if(!valid(code))return reply({error:'房间码应为 8 位字母或数字'},400);
+export async function GET(req:Request){try{const id=session(req);if(!id)return reply({session:true},200,token());const code=new URL(req.url).searchParams.get('room');if(!code)return reply({session:true});if(!valid(code))return reply({error:'邀请码应为 4 位字母或数字，旧房间支持 8 位'},400);
  for(let n=0;n<5;n++){const r=await read(code);const p=r.players.find(p=>p.id===id);if(!p)return reply({error:'请先输入昵称加入房间'},403);let changed=tick(r,Date.now());if(Date.now()-p.seen>10000){p.seen=Date.now();changed=true}if(!changed||await save(r))return reply(await visible(r,id))}return reply({error:'牌桌忙碌，请重试'},409);
  }catch(e){console.error('table GET',e);return reply({error:e instanceof Error?e.message:'连接暂时中断，请重试'},400)}}
 export async function POST(req:Request){try{const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin)return reply({error:'请求来源不正确'},403);if(Number(req.headers.get('content-length')||0)>4096)return reply({error:'请求过大'},413);const id=session(req);if(!id)return reply({error:'请刷新页面后重试'},401);const b:any=await req.json();if(!b||typeof b!=='object'||typeof b.action!=='string')throw new Error('请求内容不正确');const now=Date.now();
- if(b.action==='create'){const name=String(b.name??'').trim().slice(0,12);if(!name)throw new Error('先给自己起个昵称');const previous=await db().prepare("SELECT code FROM mahjong_rooms WHERE json_extract(state, '$.host') = ? AND updated > ? LIMIT 8").bind(id,now-60000).all();if(previous.results.length>=8)throw new Error('开桌太频繁，请一分钟后再试');for(let n=0;n<3;n++){const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=[...crypto.getRandomValues(new Uint8Array(8))].map(x=>alphabet[x%alphabet.length]).join('');const r=create(code,id,name);try{await db().prepare('INSERT INTO mahjong_rooms (code, state, version, updated) VALUES (?, ?, 0, ?)').bind(code,JSON.stringify(r),now).run();return reply(view(r,id))}catch(e){if(n===2)throw e}}}
- const code=String(b.code??'').toUpperCase();if(!valid(code))throw new Error('房间码应为 8 位字母或数字');
+ if(b.action==='create'){const name=String(b.name??'').trim().slice(0,12);if(!name)throw new Error('先给自己起个昵称');const previous=await db().prepare("SELECT code FROM mahjong_rooms WHERE json_extract(state, '$.host') = ? AND updated > ? LIMIT 8").bind(id,now-60000).all();if(previous.results.length>=8)throw new Error('开桌太频繁，请一分钟后再试');for(let n=0;n<16;n++){const code=roomCode();const r=create(code,id,name);try{await db().prepare('INSERT INTO mahjong_rooms (code, state, version, updated) VALUES (?, ?, 0, ?)').bind(code,JSON.stringify(r),now).run();return reply(view(r,id))}catch(e){if(!(e instanceof Error)||!/unique|constraint/i.test(e.message)||n===15)throw e}}}
+ const code=String(b.code??'').toUpperCase();if(!valid(code))throw new Error('邀请码应为 4 位字母或数字，旧房间支持 8 位');
+ if(b.action==='interaction')return await sendInteraction(await read(code),id,b,now);
  if(b.action==='chat')return await sendChat(await read(code),id,b,now);
  for(let tries=0;tries<5;tries++){const r=await read(code);let i=r.players.findIndex(p=>p.id===id);
  if(b.action==='join'){if(i<0){if(r.phase!=='lobby'&&r.phase!=='done')throw new Error('牌局进行中，请等本局结束后加入');const name=String(b.name??'').trim().slice(0,12);if(!name)throw new Error('先给自己起个昵称');const at=r.players.findIndex(p=>p.bot);if(at>=0){const score=r.players[at].score;r.players[at]=player(id,name);r.players[at].score=score}else if(r.players.length<4)r.players.push(player(id,name));else throw new Error('四个座位都有人了');if(!r.host||!r.players.some(p=>p.id===r.host&&!p.bot))r.host=id;log(r,`${name}入座了`)}if(await save(r))return reply(await visible(r,id));continue}

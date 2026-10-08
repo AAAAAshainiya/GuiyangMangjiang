@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {TablePoller,tableRequest} from '../lib/table-client.ts';
+import {InteractionTracker,INTERACTIONS,validRoomCode,roomCode} from '../lib/interaction.ts';
+const fetchBefore=globalThis.fetch;
+let requests=0;
+globalThis.fetch=()=>{requests++;return new Promise(()=>{})};
+await assert.rejects(tableRequest('/api/table',{},5),/超时/);
+await assert.rejects(tableRequest('/api/table',{method:'POST'},5),/超时/);
+assert.equal(requests,2,'no automatic mutation retry');
+let first=true;const applied=[],statuses=[];
+const poller=new TablePoller(signal=>first?(first=false,tableRequest('/api/table',{signal},5)):Promise.resolve({version:2}),d=>applied.push(d),ok=>statuses.push(ok),()=>false,()=>{});
+await poller.poll();assert.deepEqual(statuses,[false]);await poller.poll();assert.equal(applied[0].version,2);assert.equal(statuses.at(-1),true);poller.stop();
+const pending=[];const forced=new TablePoller(()=>new Promise(resolve=>pending.push(resolve)),d=>applied.push(d),()=>{},()=>false,()=>{});
+const old=forced.poll(),fresh=forced.poll(true);pending[1]({version:4});await fresh;pending[0]({version:3});await old;assert.equal(applied.at(-1).version,4);assert(!applied.some(d=>d.version===3),'late response after resume discarded');forced.stop();
+const nowBefore=Date.now;let now=1000;Date.now=()=>now;
+const stale=[];const hanging=new TablePoller(()=>new Promise(()=>{}),()=>{},ok=>stale.push(ok),()=>false,()=>{});void hanging.poll();now+=9000;await hanging.poll();assert.equal(stale.at(-1),false,'connected marker expires while a request is pending');hanging.offline();hanging.stop();Date.now=nowBefore;globalThis.fetch=fetchBefore;
+for(let i=0;i<500;i++){const code=roomCode();assert.equal(code.length,4);assert(validRoomCode(code));}
+assert(validRoomCode('G6HGF2RH'));assert(!validRoomCode('ABCDE'));assert(!validRoomCode('abcd'));assert.equal(INTERACTIONS.length,9);
+const tracker=new InteractionTracker(),event={id:'old',seat:0,target:1,effect:'tomato',at:1000,name:'甲'};
+assert.deepEqual(tracker.observe('ABCD',[event],1000),[]);
+const next={...event,id:'next',at:1100};assert.deepEqual(tracker.observe('ABCD',[event,next],1200),[next]);assert.deepEqual(tracker.observe('ABCD',[event,next],1300),[]);
+assert.deepEqual(tracker.observe('ABCD',[{...event,id:'stale',at:1000}],8000),[]);
+assert.deepEqual(tracker.observe('ABCD',[{...event,id:'hidden',at:8100}],8200,false),[]);tracker.resume(8500);
+assert.deepEqual(tracker.observe('ABCD',[{...event,id:'missed',at:8400}],8600),[]);
+assert.deepEqual(tracker.observe('WXYZ',[next],9000),[]);
+console.log('PASS: request timeout, poll recovery, no mutation replay, stale connection indicator, resume generation guards, new/legacy codes and interaction dedup/background filtering.');

@@ -7,8 +7,10 @@ import * as jsx from 'react/jsx-runtime';
 import * as icons from 'lucide-react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import * as game from '../lib/game.ts';
+import * as interaction from '../lib/interaction.ts';
+import * as client from '../lib/table-client.ts';
 function mod(object){return new vm.SyntheticModule(Object.keys(object),function(){for(const k of Object.keys(object))this.setExport(k,object[k])})}
-const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game),'@/components/ui/button':mod({Button:props=>React.createElement('button',props)})};
+const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game),'@/lib/interaction':mod(interaction),'@/lib/table-client':mod(client),'@/components/ui/button':mod({Button:props=>React.createElement('button',props)})};
 async function load(path){const source=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;const m=new vm.SourceTextModule(source);await m.link(s=>imports[s]);await m.evaluate();return m.namespace}
 const {TableActions}=await load('app/game-actions.tsx');const {SettlementDetails,ScoreOverview}=await load('app/game-social.tsx');
 let calls=[];let props={options:['discard','gang:3','bu:9','hu'],phase:'play',busy:false,onAction:(...args)=>calls.push(args),seconds:20};

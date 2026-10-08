@@ -7,8 +7,10 @@ import * as jsx from 'react/jsx-runtime';
 import * as icons from 'lucide-react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import * as game from '../lib/game.ts';
+import * as interaction from '../lib/interaction.ts';
+import * as client from '../lib/table-client.ts';
 function mod(object){return new vm.SyntheticModule(Object.keys(object),function(){for(const k of Object.keys(object))this.setExport(k,object[k])})}
-const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game)};
+const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game),'@/lib/interaction':mod(interaction),'@/lib/table-client':mod(client)};
 const source=ts.transpileModule(fs.readFileSync('app/game-social.tsx','utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const module=new vm.SourceTextModule(source);await module.link(s=>imports[s]);await module.evaluate();
 const {ScoreOverview,RoundEnd,ChatBubble,ChatPanel}=module.namespace;
@@ -22,5 +24,5 @@ html=renderToStaticMarkup(React.createElement(RoundEnd,{room:drawn,Tile:()=>null
 html=renderToStaticMarkup(React.createElement(ChatBubble,{messages:[{id:'1',seat:1,content:'<script>alert(1)</script>',kind:'text',at:1000}],seat:1,now:2000,enabled:true}));assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
 assert.equal(renderToStaticMarkup(React.createElement(ChatBubble,{messages:[{id:'1',seat:1,content:'你好',kind:'text',at:1000}],seat:1,now:5000,enabled:true})),'','bubble disappears at four seconds');
 assert.equal(renderToStaticMarkup(React.createElement(ChatBubble,{messages:[{id:'1',seat:1,content:'你好',kind:'text',at:1000}],seat:1,now:2000,enabled:false})),'','bubble preference is respected');
-html=renderToStaticMarkup(React.createElement(ChatPanel,{room,onUpdate:()=>{},onBubbles:()=>{}}));assert.match(html,/牌友聊天/);assert.doesNotMatch(html,/chat-history/,'chat starts collapsed');
+html=renderToStaticMarkup(React.createElement(ChatPanel,{room,onUpdate:()=>{},onBubbles:()=>{}}));assert.match(html,/打开互动与聊天/);assert.doesNotMatch(html,/chat-history/,'chat starts collapsed');
 console.log('PASS: personal score columns, net total, flip-before-summary, no-flip drawn round, escaped chat, four-second bubbles and chat entry.');
