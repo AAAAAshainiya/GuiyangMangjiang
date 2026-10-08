@@ -37,6 +37,33 @@ export function ScoreOverview({room}:{room:any}){
   const net=result.delta[i];return <tr key={i} className={i===room.me?'your-score':''}><td>{p.name}{i===room.me&&<small>你</small>}</td><td>{hu}</td><td>{bean===null?'—':bean}</td><td>{result.values?.[i]??0}</td><td className={net>0?'positive':net<0?'negative':''}><b>{net>0?'+':''}{net}</b></td></tr>
  })}</tbody></table><p className="score-caption">胡、豆、鸡是自身分值；合计是本局实际盈亏。{!result.beanValues&&'历史杠分基数未记录，以合计为准。'}</p></>;
 }
+const signed=(n:number)=>(n>0?'+':'')+n;
+function huWith(result:any,me:number,other:number){
+ if(result.winner<0)return 0;
+ const n=result.huValues?.[result.winner]??result.hu[result.winner]/(result.from<0?3:1);
+ if(me===result.winner)return result.from<0||result.from===other?n:0;
+ if(other===result.winner)return result.from<0||result.from===me?-n:0;
+ return 0;
+}
+export function SettlementDetails({room}:{room:any}){
+ const r=room.result,me=room.me,details=r.myChickenDetails;
+ const eligible=me===r.winner||r.revealed?.[me];
+ const sources:Record<string,string>={hand:'手牌',peng:'碰牌',gang:'明杠／补杠',an:'暗杠',river:'自己打出的牌'};
+ const rows=room.players.map((p:any,i:number)=>{
+  const hu=huWith(r,me,i),chicken=(r.values?.[me]??0)-(r.values?.[i]??0);
+  const bean=r.winner<0?0:Array.isArray(r.beanTransfers)?r.beanTransfers.reduce((sum:number,t:any)=>sum+(t.from===i&&t.to===me?t.points:0)-(t.from===me&&t.to===i?t.points:0),0):null;
+  return {name:p.name,i,hu,chicken,bean,total:bean===null?null:hu+chicken+bean};
+ }).filter((row:any)=>row.i!==me);
+ return <details className="settlement-details"><summary>查看我的收付明细</summary><div className="settlement-body">
+ <p>{r.winner<0?'流局，本局所有收付为 0。':eligible?'你已胡牌或听牌：手牌、碰杠和自己弃牌区的鸡都计分。':'你未听牌：只为自己弃牌区的鸡付分，手牌及碰杠里的鸡不罚分。'}</p>
+ <h3>自己的鸡分：{r.values?.[me]??0}</h3>
+ {details===null||details===undefined?<p className="detail-note">这局未记录逐张鸡分来源；以下收付按已保存的结算结果显示。</p>:details.length?<ul className="chicken-detail-list">{details.map((d:any,i:number)=><li key={i}><span>{sources[d.source]} · {tileName(d.tile)}{d.charge?'（冲锋鸡）':''}{d.tile===r.rooster?'（含翻牌鸡 +1）':''}<small>{d.count} 张 × {d.unit} 分</small></span><b>{eligible?d.points:-d.points} 分</b></li>)}</ul>:<p className="detail-note">没有计入鸡分的牌。</p>}
+ <h3>与每家的收付</h3><p className="detail-note">正数是对方给你，负数是你给对方。鸡分按双方自身鸡值相减。</p>
+ <table className="transfer-table"><thead><tr><th>牌友</th><th>胡</th><th>豆</th><th>鸡</th><th>合计</th></tr></thead><tbody>{rows.map((row:any)=><tr key={row.i}><td>{row.name}<small>鸡：{r.values?.[me]??0} − ({r.values?.[row.i]??0})</small></td><td>{signed(row.hu)}</td><td>{row.bean===null?'—':signed(row.bean)}</td><td>{signed(row.chicken)}</td><td>{row.total===null?'—':signed(row.total)}</td></tr>)}</tbody></table>
+ {rows.some((row:any)=>row.bean===null)&&<p className="detail-note">这局开局时尚未记录逐家豆分，豆的实际净额仍保留在下面。</p>}
+ <p className="net-equation">实际盈亏：胡 {signed(r.hu?.[me]??0)} ＋ 豆 {signed(r.beans?.[me]??0)} ＋ 鸡 {signed(r.chicken?.[me]??0)} ＝ <b>{signed(r.delta[me])}</b></p>
+ </div></details>;
+}
 export function RoundEnd({room,Tile}:{room:any,Tile:any}){
  const [stage,setStage]=useState<'flip'|'summary'|'closed'>(room.result.flip!==null?'flip':'summary');
  useEffect(()=>{setStage(room.result.flip!==null?'flip':'summary');if(room.result.flip!==null){const timer=setTimeout(()=>setStage('summary'),2600);return()=>clearTimeout(timer)}},[room.code,room.round]);

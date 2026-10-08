@@ -15,7 +15,7 @@ function table(){
  return r;
 }
 function settle(r){
- act(r,0,'hu',undefined,1000);
+ r.drawn=r.players[0].hand.at(-1);act(r,0,'hu',undefined,1000);
  for(const field of ['hu','beans','chicken','delta'])assert.equal(r.result[field].reduce((a,b)=>a+b,0),0,field+' conserves points');
  return r.result;
 }

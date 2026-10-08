@@ -8,9 +8,9 @@ const cases=[
  [[0,0,0,2,2,2,4,4,4,6,6,6,8,8],24],
  [[0,0,1,1,2,2,3,3,4,4,5,5,6,6],48],
 ];
-function table(){const r=create('ABCDEFGH','0','我');r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));r.phase='play';r.turn=0;r.wall=[];return r}
+function table(){const r=create('ABCDEFGH','0','我');r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));r.phase='play';r.turn=0;r.wall=[];r.drawn=25;return r}
 for(const [hand,n] of cases)for(const flower of [false,true]){
- const r=table();r.players[0].hand=[...hand];r.afterKong=flower;act(r,0,'hu',undefined,1000);
+ const r=table();r.players[0].hand=[...hand];r.drawn=hand.at(-1);r.afterKong=flower;act(r,0,'hu',undefined,1000);
  const value=n*(flower?2:1);assert.deepEqual(r.result.hu,[value*3,-value,-value,-value]);assert.deepEqual(r.result.huValues,[value,0,0,0]);assert.equal(r.result.delta.reduce((a,b)=>a+b),0);
 }
 let r=table();r.wall=[5];r.canKong=true;r.players[0].hand=[1,1,1,1,4,5,6,10,11,12,21,22,23,25];act(r,0,'gang',1,1000);assert.deepEqual(r.beans,[12,-4,-4,-4]);assert.deepEqual(r.beanValues,[4,0,0,0]);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {create,player,start,tick,act,view,waits,chickenPoints,botDelay} from '../lib/game.ts';
-function table(){const r=create('ABCDEFGH','0','我');r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i,i!==0));r.phase='play';r.wall=[4,5,6,7,8,9,10];return r}
+function table(){const r=create('ABCDEFGH','0','我');r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i,i!==0));r.phase='play';r.drawn=0;r.wall=[4,5,6,7,8,9,10];return r}
 assert.equal(chickenPoints(0),2);assert.equal(chickenPoints(18),2);assert.equal(chickenPoints(16),2);assert.equal(chickenPoints(1),0);
 let r=table();r.players[0].ready=true;r.dealer=1;start(r,1000);assert.equal(r.deadline,3000);const initial=JSON.stringify(r);assert.equal(tick(r,2999),false);assert.equal(JSON.stringify(r),initial);assert.equal(botDelay(r),2000);
 r=table();r.players[0].hand=[0,0];act(r,0,'discard',0,1000);assert.equal(r.deadline,3000);assert.deepEqual(view(r,'0').players[0].charges,[0]);r.turn=0;r.phase='play';act(r,0,'discard',0,2000);assert.deepEqual(view(r,'0').players[0].charges,[0]);assert.equal(r.charges.length,1,'only first discard of each chicken is sideways');
