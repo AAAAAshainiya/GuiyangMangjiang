@@ -4,7 +4,7 @@ export type Claim={from:number,t:number,rob:boolean,choices:Record<string,string
 export type Room={code:string,host:string,players:Player[],phase:'lobby'|'play'|'claim'|'done',wall:number[],turn:number,dealer:number,round:number,deadline:number,claim:Claim|null,drawn:number|null,drawnIndex?:number|null,canKong:boolean,afterKong:boolean,logs:string[],result:any,beans:number[],version?:number,charges?:{tile:number,player:number,index:number,claimed:boolean}[]};
 export const tileName=(t:number)=>`${t%9+1}${['万','筒','条'][Math.floor(t/9)]}`;
 export const isChicken=(t:number)=>t===0||t===18||t===16;
-export const chickenPoints=(t:number)=>(t===0||t===18)?1:t===16?2:0;
+export const chickenPoints=(t:number)=>isChicken(t)?2:0;
 export const botDelay=(_r:Room)=>2000;
 export function log(r:Room,s:string){r.logs=[s,...r.logs].slice(0,30)}
 const sort=(a:number[])=>a.sort((a,b)=>a-b);
@@ -36,12 +36,23 @@ export function start(r:Room,now:number){if(r.players.length!==4||r.players.some
 function draw(r:Room,i:number,now:number,kong=false){if(!r.wall.length){finish(r,-1,-1,'流局');return}r.turn=i;r.phase='play';const t=r.wall.pop()!;r.players[i].hand.push(t);sort(r.players[i].hand);r.drawn=t;r.drawnIndex=r.players[i].hand.lastIndexOf(t);r.canKong=true;r.afterKong=kong;deadline(r,now)}
 function transfer(a:number[],from:number,to:number,n:number){a[from]-=n;a[to]+=n}
 function bean(r:Room,i:number,type:string,from=-1){if(type==='ming')transfer(r.beans,from,i,3);else r.players.forEach((_,j)=>{if(j!==i)transfer(r.beans,j,i,type==='an'?2:1)})}
+function chickenValue(r:Room,i:number,eligible:boolean,rooster:number|null){
+ const p=r.players[i];
+ const value=(t:number,charge=false)=>(charge?4:chickenPoints(t))+(t===rooster?1:0);
+ // A claimed tile leaves the river and belongs only to its recipient.
+ const discards=p.river.reduce((sum,t,index)=>sum+value(t,(r.charges??[]).some(c=>c.player===i&&c.index===index&&!c.claimed&&c.tile===t)),0);
+ if(!eligible)return discards?-discards:0;
+ const held=[...p.hand,...p.melds.flatMap(m=>Array(m.k==='gang'?4:3).fill(m.t))];
+ return discards+held.reduce((sum,t)=>sum+value(t),0);
+}
 function finish(r:Room,winner:number,from:number,kind:string){
+ // A drawn round cancels every component, including previously earned beans.
+ if(winner<0)r.beans=[0,0,0,0];
  const delta=[...r.beans],hu=[0,0,0,0],chicken=[0,0,0,0];let flip:number|null=null,rooster:number|null=null,values=[0,0,0,0];let pat=null;
  if(winner>=0){pat=pattern(r.players[winner].hand,r.players[winner].melds)!;const n=pat.points*(kind==='杠上开花'||kind==='抢杠胡'?2:1);
  if(from<0)r.players.forEach((_,j)=>{if(j!==winner)transfer(hu,j,winner,n)});else transfer(hu,from,winner,n);
  flip=r.wall.length?r.wall.pop()!:null;rooster=flip===null?null:Math.floor(flip/9)*9+(flip%9+1)%9;
- values=r.players.map((p,i)=>i===winner||waits(p).length?[...p.hand,...p.melds.flatMap(m=>Array(m.k==='gang'?4:3).fill(m.t))].reduce((s,t)=>s+chickenPoints(t)+(t===rooster?1:0),0):0);
+ values=r.players.map((p,i)=>chickenValue(r,i,i===winner||waits(p).length>0,rooster));
  for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)transfer(chicken,j,i,values[i]-values[j]);
  }
  r.players.forEach((p,i)=>{delta[i]+=hu[i]+chicken[i];p.score+=delta[i];p.ready=p.bot});
