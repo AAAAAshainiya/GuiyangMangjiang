@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { CHAT_EMOJIS, botDelay, actionContext, act, create, player, start, tick, view, log, type Room } from '@/lib/game';
+import { CHAT_EMOJIS, AVATARS, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
 export const dynamic='force-dynamic';
 import {interactionKind,validRoomCode as valid,roomCode} from '@/lib/interaction';
 class RequestError extends Error {constructor(message:string,public status=400,public code='ACTION_REJECTED'){super(message)}}
@@ -35,7 +35,7 @@ async function sendChat(r:Room,id:string,b:any,now:number){
 }
 const PLAY_ACTIONS=['discard','hu','peng','gang','bu','pass'];
 function receipt(r:Room,id:string,clientId:unknown){return r.actionReceipts?.find(a=>a.player===id&&a.id===clientId)}
-function signature(b:any){return JSON.stringify([b.action,b.tile??null,b.version??null,b.context??null,b.name??null])}
+function signature(b:any){const fields=[b.action,b.tile??null,b.version??null,b.context??null,b.name??null];if(b.avatar!==undefined)fields.push(b.avatar);return JSON.stringify(fields)}
 function acknowledge(r:Room,id:string,clientId:string){return {clientId,status:receipt(r,id,clientId)?'applied':'not_found'}}
 function remember(r:Room,id:string,b:any,left=false){if(!b.clientId)return;r.actionReceipts=[...(r.actionReceipts??[]),{id:b.clientId,player:id,signature:signature(b),at:Date.now(),...(left?{left:true}:{})}].slice(-128)}
 async function outcome(r:Room,id:string,b:any,left=false){return {...(left?{left:true}:await visible(r,id)),...(b.clientId?{actionAck:acknowledge(r,id,b.clientId)}:{})}}
@@ -46,7 +46,7 @@ export async function GET(req:Request){try{
  for(let n=0;n<5;n++){
   const r=await read(code),p=r.players.find(p=>p.id===id);
   if(!p){if(actionId&&receipt(r,id,actionId)?.left)return reply({left:true,actionAck:acknowledge(r,id,actionId)});return reply({error:'请先输入昵称加入房间'},403)}
-  const gameChanged=tick(r,Date.now());let changed=gameChanged;
+  const gameChanged=advance(r,Date.now()),historyChanged=r.phase==='done'&&!!r.result&&!r.history?.some(h=>h.round===r.round);if(historyChanged)archiveRound(r,Date.now());let changed=gameChanged||historyChanged;
   if(Date.now()-p.seen>10000){p.seen=Date.now();changed=true}
   if(!changed||await save(r,gameChanged))return reply({...await visible(r,id),...(actionId?{actionAck:acknowledge(r,id,actionId)}:{})});
  }
@@ -62,7 +62,7 @@ export async function POST(req:Request){try{
  if(b.action==='create'){
   const name=String(b.name??'').trim().slice(0,12);if(!name)throw new RequestError('先给自己起个昵称');
   const previous=await db().prepare("SELECT code FROM mahjong_rooms WHERE json_extract(state, '$.host') = ? AND updated > ? LIMIT 8").bind(id,now-60000).all();if(previous.results.length>=8)throw new RequestError('开桌太频繁，请一分钟后再试');
-  for(let n=0;n<16;n++){const code=roomCode(),r=create(code,id,name);r.version=0;r.playVersion=0;try{await db().prepare('INSERT INTO mahjong_rooms (code, state, version, updated) VALUES (?, ?, 0, ?)').bind(code,JSON.stringify(r),now).run();return reply(view(r,id))}catch(e){if(!(e instanceof Error)||!/unique|constraint/i.test(e.message)||n===15)throw e}}
+  for(let n=0;n<16;n++){const code=roomCode(),r=create(code,id,name);r.players[0].avatar=AVATARS.includes(b.avatar)?b.avatar:AVATARS[0];r.version=0;r.playVersion=0;try{await db().prepare('INSERT INTO mahjong_rooms (code, state, version, updated) VALUES (?, ?, 0, ?)').bind(code,JSON.stringify(r),now).run();return reply(view(r,id))}catch(e){if(!(e instanceof Error)||!/unique|constraint/i.test(e.message)||n===15)throw e}}
  }
  const code=String(b.code??'').toUpperCase();if(!valid(code))throw new RequestError('邀请码应为 4 位字母或数字，旧房间支持 8 位');
  if(b.action==='interaction')return await sendInteraction(await read(code),id,b,now);
@@ -77,6 +77,7 @@ export async function POST(req:Request){try{
    if(!['lobby','done'].includes(r.phase))throw new RequestError('牌局进行中，请等本局结束后加入');
    const name=String(b.name??'').trim().slice(0,12);if(!name)throw new RequestError('先给自己起个昵称');
    const at=r.players.findIndex(p=>p.bot);if(at>=0){const score=r.players[at].score;r.players[at]=player(id,name);r.players[at].score=score}else if(r.players.length<4)r.players.push(player(id,name));else throw new RequestError('四个座位都有人了');
+   r.players.find(p=>p.id===id)!.avatar=AVATARS.includes(b.avatar)?b.avatar:AVATARS[0];
    if(!r.host||!r.players.some(p=>p.id===r.host&&!p.bot))r.host=id;log(r,`${name}入座了`);remember(r,id,b);
    if(await save(r))return reply(await outcome(r,id,b));continue;
   }
@@ -84,12 +85,15 @@ export async function POST(req:Request){try{
   // Claim responses from different seats share a stable action context, while
   // every persisted change still uses the SQL compare-and-swap revision.
   const isPlay=PLAY_ACTIONS.includes(b.action);
-  const stale=isPlay?(b.context!==undefined?b.context!==actionContext(r,i):b.version!==r.playVersion):(b.clientId&&b.version!==r.playVersion);
+  const stale=isPlay?(b.context!==undefined?b.context!==actionContext(r,i):b.version!==r.playVersion):(b.action!=='resume'&&b.clientId&&b.version!==r.playVersion);
   if(stale)return reply({error:'牌桌已更新，已为你同步最新操作',code:'STATE_CHANGED',state:await visible(r,id)},409);
   r.players[i].seen=now;
   let left=false;
   try{
-   if(b.action==='leave'){
+   if(b.action==='resume'){if(!['play','claim'].includes(r.phase))throw new Error('当前无需恢复手动操作');r.players[i].managed=false;if(r.phase==='play'&&r.turn===i)r.deadline=now+45000;log(r,`${r.players[i].name}已恢复手动操作`)}
+   else if(b.action==='speed'){if(r.host!==id)throw new Error('只有房主可以设置快速模式');if(!['lobby','done'].includes(r.phase))throw new Error('下一局开始前可以调整模式');if(![0,1].includes(b.tile))throw new Error('模式设置不正确');r.fast=b.tile===1;log(r,r.fast?'快速模式已开启：人机立即行动':'快速模式已关闭：人机等待两秒')}
+   else if(b.action==='profile'){if(!['lobby','done'].includes(r.phase))throw new Error('本局结束后可以修改资料');const name=String(b.name??'').trim().slice(0,12);if(!name||!AVATARS.includes(b.avatar))throw new Error('请选择昵称和头像');r.players[i].name=name;r.players[i].avatar=b.avatar}
+   else if(b.action==='leave'){
     const name=r.players[i].name;
     if(r.phase==='play'||r.phase==='claim'){r.players[i].id='bot:'+crypto.randomUUID();r.players[i].bot=true;r.players[i].name=name+'（托管）';r.players[i].ready=true;if(r.phase==='play'&&r.turn===i)r.deadline=now+botDelay(r)}
     else{r.players.splice(i,1);r.phase='lobby';r.result=null;r.dealer=Math.max(0,Math.min(r.dealer,r.players.length-1))}
@@ -98,11 +102,12 @@ export async function POST(req:Request){try{
     if(r.host!==id)throw new Error('只有房主可以调整电脑');if(!['lobby','done'].includes(r.phase))throw new Error('本局结束后才能调整座位');
     if(b.action==='fill'){while(r.players.length<4){const n=r.players.length;r.players.push(player('bot:'+crypto.randomUUID(),['黔灵阿青','花溪小北','南明阿川'][n-1]??'电脑牌友',true))}log(r,'空位已用电脑补齐')}
     else{r.players=r.players.filter(p=>!p.bot);r.phase='lobby';r.result=null;r.dealer=Math.min(r.dealer,r.players.length-1)}
-   }else if(b.action==='ready'){if(!['lobby','done'].includes(r.phase))throw new Error('请等待本局结束');r.players[i].ready=!r.players[i].ready}
+   }else if(b.action==='ready'){if(!['lobby','done'].includes(r.phase))throw new Error('请等待本局结束');r.players[i].managed=false;r.players[i].ready=!r.players[i].ready}
    else if(b.action==='start'){if(r.host!==id)throw new Error('只有房主可以开局');if(!['lobby','done'].includes(r.phase))throw new Error('本局尚未结束');r.dealer=Math.max(0,Math.min(r.dealer,r.players.length-1));start(r,now)}
    else if(isPlay)act(r,i,b.action,b.tile,now);
    else throw new Error('不支持这个操作');
   }catch(e){return reply({error:e instanceof Error?e.message:'操作不符合当前规则',code:'ACTION_REJECTED',state:await visible(await read(code),id)},400)}
+  if(!left)advance(r,now);
   remember(r,id,b,left);
   if(await save(r))return reply(await outcome(r,id,b,left));
  }

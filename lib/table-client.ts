@@ -42,7 +42,7 @@ export class TableRequestError extends Error{
  constructor(message:string,status:number,data:any){super(message);this.status=status;this.data=data}
 }
 type PendingAction={action:string,code:string,name?:string,tile?:number,version:number,context?:string,clientId:string,createdAt:number};
-const ROOM_ACTIONS=['leave','fill','removeBots','ready','start','discard','hu','peng','gang','bu','pass'];
+const ROOM_ACTIONS=['speed','profile','resume','leave','fill','removeBots','ready','start','discard','hu','peng','gang','bu','pass'];
 const PLAY_ACTIONS=['discard','hu','peng','gang','bu','pass'];
 // One logical action retains the same ID through timeout, refresh and retry.
 // A fresh snapshot is always checked before replaying an unacknowledged action.
@@ -71,7 +71,7 @@ export class TableActionCoordinator{
   if(data.actionAck?.clientId!==p.clientId)return{data,outcome:'pending'};
   if(data.actionAck.status==='applied'){this.clear();return{data,outcome:'confirmed'}}
   if(data.actionAck.status!=='not_found')return{data,outcome:'pending'};
-  const valid=PLAY_ACTIONS.includes(p.action)&&p.context!==undefined?data.actionContext===p.context:data.version===p.version;
+  const valid=PLAY_ACTIONS.includes(p.action)&&p.context!==undefined?data.actionContext===p.context:p.action==='resume'?data.players?.[data.me]?.managed===true:data.version===p.version;
   if(!valid||Date.now()-p.createdAt>=30*60000){this.clear();return{data,outcome:'changed'}}
   if(this.active===p.clientId||signal?.aborted||Date.now()<this.retryAt)return{data,outcome:'pending'};
   try{const result=await this.send();return{data:result??data,outcome:result?'confirmed':'pending'}}

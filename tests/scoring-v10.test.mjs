@@ -21,7 +21,7 @@ for(const [hand,base,flowerBase] of [[plain,4,8],[dui,8,16],[qi,12,20],[pure,16,
 }
 for(const pure of [false,true])for(const flower of [false,true]){
  const r=table();r.players[0].melds=(pure?[0,2,4,6]:[1,4,10,21]).map(t=>({t,k:'peng'}));r.players[0].hand=pure?[8,8]:[25,25];r.drawn=r.players[0].hand[0];r.afterKong=flower;
- const z=settle(r);assert.equal(z.huValues[0],20+(pure?16:0)+(flower?8:0));assert.ok(z.huParts.some(p=>p.name==='单吊'));
+ const z=settle(r);assert.equal(z.huValues[0],12+(pure?16:0)+(flower?8:0));assert.ok(z.huParts.some(p=>p.name==='单吊'));assert.ok(!z.huParts.some(p=>p.name==='大对子'));
 }
 // Four identical tiles replace seven pairs once, even with multiple quads.
 let r=table();r.players[0].hand=[1,1,1,1,10,10,10,10,21,21,21,21,25,25];assert.equal(huScore(r,0,'自摸').points,16);
