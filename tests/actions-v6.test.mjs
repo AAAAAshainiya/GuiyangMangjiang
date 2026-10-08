@@ -35,6 +35,6 @@ act(r,0,'hu',undefined,1000);assert(r.result.chickenDetails[1].some(d=>d.source=
 assert.equal(view(r,'0').players[1].melds[0].t,-1);assert(!view(r,'0').result.myChickenDetails.some(d=>d.source==='an'));
 assert(view(r,'1').result.myChickenDetails.some(d=>d.source==='an'&&d.tile===16));
 // Ongoing old rounds never claim to have a complete ledger they did not record.
-r=table();delete r.beanTransfers;r.turn=0;r.drawn=4;r.canKong=true;r.wall=[6,25];r.players[0].hand=[4,4,4,4,1,2,3,10,11,12,21,22,23,25];
+r=table();delete r.beanTransfers;delete r.beanRequiresReady;r.turn=0;r.drawn=4;r.canKong=true;r.wall=[6,25];r.players[0].hand=[4,4,4,4,1,2,3,10,11,12,21,22,23,25];
 act(r,0,'gang',4,1000);act(r,0,'hu',undefined,1100);assert.equal(r.result.beanTransfers,null);assert.deepEqual(r.result.beans,[12,-4,-4,-4]);
 console.log('PASS: peng cannot become human or bot self-draw; legal draw and kong flowers; exact chicken sources, pairwise settlements, concealed detail privacy and legacy ledger handling.');

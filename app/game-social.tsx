@@ -35,7 +35,7 @@ export function ScoreOverview({room}:{room:any}){
   const hu=result.huValues?.[i]??(i===result.winner?result.hu[i]/(result.from<0?3:1):0);
   const bean=result.beanValues?.[i]??(p.melds.some((m:any)=>m.k==='gang')?null:0);
   const net=result.delta[i];return <tr key={i} className={i===room.me?'your-score':''}><td>{p.name}{i===room.me&&<small>你</small>}</td><td>{hu}</td><td>{bean===null?'—':bean}</td><td>{result.values?.[i]??0}</td><td className={net>0?'positive':net<0?'negative':''}><b>{net>0?'+':''}{net}</b></td></tr>
- })}</tbody></table><p className="score-caption">胡、豆、鸡是自身分值；合计是本局实际盈亏。{!result.beanValues&&'历史杠分基数未记录，以合计为准。'}</p></>;
+ })}</tbody></table><p className="score-caption">胡、豆、鸡是自身分值；合计是本局实际盈亏。{result.beanRequiresReady&&'自己的豆仅在胡牌或听牌时有效；未听牌仍需付他人的有效豆分。'}{!result.beanValues&&'历史杠分基数未记录，以合计为准。'}</p></>;
 }
 const signed=(n:number)=>(n>0?'+':'')+n;
 function huWith(result:any,me:number,other:number){
@@ -55,7 +55,7 @@ export function SettlementDetails({room}:{room:any}){
   return {name:p.name,i,hu,chicken,bean,total:bean===null?null:hu+chicken+bean};
  }).filter((row:any)=>row.i!==me);
  return <details className="settlement-details"><summary>查看我的收付明细</summary><div className="settlement-body">
- <p>{r.winner<0?'流局，本局所有收付为 0。':eligible?'你已胡牌或听牌：手牌、碰杠和自己弃牌区的鸡都计分。':'你未听牌：只为自己弃牌区的鸡付分，手牌及碰杠里的鸡不罚分。'}</p>
+ <p>{r.winner<0?'流局，本局所有收付为 0。':eligible?'你已胡牌或听牌：手牌、碰杠和自己弃牌区的鸡都计分。':'你未听牌：只为自己弃牌区的鸡付分，手牌及碰杠里的鸡不罚分。'}{r.winner>=0&&r.beanRequiresReady&&(eligible?'你的杠计豆，仍需支付其他胡牌或听牌者的豆分。':'你自己的杠不计豆，但仍需支付胡牌或听牌者的豆分。')}</p>
  <h3>自己的鸡分：{r.values?.[me]??0}</h3>
  {details===null||details===undefined?<p className="detail-note">这局未记录逐张鸡分来源；以下收付按已保存的结算结果显示。</p>:details.length?<ul className="chicken-detail-list">{details.map((d:any,i:number)=><li key={i}><span>{sources[d.source]} · {tileName(d.tile)}{d.charge?'（冲锋鸡）':''}{d.tile===r.rooster?'（含翻牌鸡 +1）':''}<small>{d.count} 张 × {d.unit} 分</small></span><b>{eligible?d.points:-d.points} 分</b></li>)}</ul>:<p className="detail-note">没有计入鸡分的牌。</p>}
  <h3>与每家的收付</h3><p className="detail-note">正数是对方给你，负数是你给对方。鸡分按双方自身鸡值相减。</p>

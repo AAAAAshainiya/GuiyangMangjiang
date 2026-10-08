@@ -10,7 +10,7 @@ import * as game from '../lib/game.ts';
 function mod(object){return new vm.SyntheticModule(Object.keys(object),function(){for(const k of Object.keys(object))this.setExport(k,object[k])})}
 const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game),'@/components/ui/button':mod({Button:props=>React.createElement('button',props)})};
 async function load(path){const source=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;const m=new vm.SourceTextModule(source);await m.link(s=>imports[s]);await m.evaluate();return m.namespace}
-const {TableActions}=await load('app/game-actions.tsx');const {SettlementDetails}=await load('app/game-social.tsx');
+const {TableActions}=await load('app/game-actions.tsx');const {SettlementDetails,ScoreOverview}=await load('app/game-social.tsx');
 let calls=[];let props={options:['discard','gang:3','bu:9','hu'],phase:'play',busy:false,onAction:(...args)=>calls.push(args),seconds:20};
 let tree=TableActions(props),html=renderToStaticMarkup(tree);
 assert.match(html,/暗杠 4万/);assert.match(html,/补杠 1筒/);assert.match(html,/自摸/);assert.match(html,/20 秒/);assert.doesNotMatch(html,/>出牌</);
@@ -23,4 +23,7 @@ const room={me:0,players:[0,1,2,3].map(i=>({name:'玩家'+i})),result:{winner:0,
 html=renderToStaticMarkup(React.createElement(SettlementDetails,{room}));assert.match(html,/自己的鸡分：13/);assert.match(html,/冲锋鸡/);assert.match(html,/含翻牌鸡 \+1/);assert.match(html,/4 张 × 2 分/);assert.match(html,/<td>\+3<\/td><td>-4<\/td><td>\+6<\/td><td>\+5<\/td>/);assert.match(html,/胡 \+9 ＋ 豆 -4 ＋ 鸡 \+20 ＝ <b>\+25/);
 const legacy={...room,result:{...room.result,myChickenDetails:null,beanTransfers:null}};
 html=renderToStaticMarkup(React.createElement(SettlementDetails,{room:legacy}));assert.match(html,/未记录逐张鸡分来源/);assert.match(html,/尚未记录逐家豆分/);assert.match(html,/胡 \+9 ＋ 豆 -4 ＋ 鸡 \+20/);
+const unready={...room,me:2,players:room.players.map(p=>({...p,melds:[]})),result:{...room.result,beanRequiresReady:true,revealed:[true,true,false,false],beanValues:[0,4,0,0],beans:[-4,12,-4,-4],delta:[25,5,-39,9],myChickenDetails:[],beanTransfers:[{from:0,to:1,points:4},{from:2,to:1,points:4},{from:3,to:1,points:4}]}};
+html=renderToStaticMarkup(React.createElement(ScoreOverview,{room:unready}));assert.match(html,/<td>0<\/td><td>0<\/td><td>0<\/td><td class="negative"><b>-39<\/b>/,'non-ready personal bean value is zero while actual payments remain');
+html=renderToStaticMarkup(React.createElement(SettlementDetails,{room:unready}));assert.match(html,/你自己的杠不计豆，但仍需支付胡牌或听牌者的豆分/);assert.match(html,/胡 -3 ＋ 豆 -4 ＋ 鸡 -32 ＝ <b>-39/);
 console.log('PASS: central action labels, exact kong callback, busy/finished states, claim tile context, personal sources, opponent payments and historical detail fallbacks.');
