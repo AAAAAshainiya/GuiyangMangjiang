@@ -102,3 +102,6 @@
 .transfer-table th:first-child,.transfer-table td:first-child{text-align:left;overflow-wrap:anywhere;max-width:100px}
 .settlement-body .net-equation{margin:14px 0 0;background:#eff4eb;padding:10px;border-radius:7px;font-size:14px}
 @media(max-width:580px){.table-actions{width:min(250px,calc(100% - 24px));padding:12px}.has-table-actions .playing{top:calc(50% - 130px)}.settlement-details{font-size:14px}.transfer-table{font-size:14px}}
+.sound-toggle{gap:6px!important;min-height:40px;border:1px solid #dce5d8!important;border-radius:9px!important;padding:8px 10px!important}
+.sound-toggle span{display:inline!important;font-size:14px;white-space:nowrap}
+.sound-toggle[aria-pressed=true]{background:#e6efdf!important;color:#2c644b!important}
