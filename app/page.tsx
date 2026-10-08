@@ -9,7 +9,7 @@ import {tileName} from '@/lib/game';
 import {ChatBubble,ChatPanel,RoundEnd,ScoreOverview,SettlementDetails} from './game-social';
 import {TableActions} from './game-actions';
 import {SoundToggle,useTableSound} from './game-audio';
-import {tableRequest,TablePoller} from '@/lib/table-client';
+import {tableRequest,TablePoller,TableActionCoordinator,TableRequestError} from '@/lib/table-client';
 import {INTERACTIONS,validRoomCode,type InteractionKind} from '@/lib/interaction';
 import {InteractionLayer} from './game-interactions';
 type State=any;
@@ -26,25 +26,57 @@ export default function Home(){
  const [room,setRoom]=useState<State>(null),[code,setCode]=useState(''),[name,setName]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[rules,setRules]=useState(false),[leave,setLeave]=useState(false),[tips,setTips]=useState(true),[connected,setConnected]=useState(true),[selection,setSelection]=useState<number|null>(null),[now,setNow]=useState(Date.now()),[tab,setTab]=useState('create'),[initialized,setInitialized]=useState(false);
  const [bubbles,setBubbles]=useState(true);
  const roomRef=useRef<State>(null),busyRef=useRef(false),tableRef=useRef<HTMLDivElement>(null),interactionLock=useRef(false),interactionRetry=useRef<{effect:InteractionKind,target:number,id:string}|null>(null);roomRef.current=room;
+ const coordinator=useRef<TableActionCoordinator|null>(null),recoverableError=useRef(false);if(!coordinator.current)coordinator.current=new TableActionCoordinator(tableRequest);
  const [targetEffect,setTargetEffect]=useState<InteractionKind|null>(null),[interactionBusy,setInteractionBusy]=useState(false),[cooldownUntil,setCooldownUntil]=useState(0);
- const apply=useCallback((data:State)=>{setRoom((prev:State)=>{if(prev?.code!==data.code)return data;const messages=[...new Map([...(prev.messages??[]),...(data.messages??[])].map((m:any)=>[m.id,m])).values()].sort((a:any,b:any)=>a.at-b.at||a.id.localeCompare(b.id)).slice(-100);const interactions=[...new Map([...(prev.interactions??[]),...(data.interactions??[])].map((event:any)=>[event.id,event])).values()].sort((a:any,b:any)=>a.at-b.at||a.id.localeCompare(b.id)).slice(-40);return {...((prev.version??-1)>(data.version??0)?prev:data),messages,interactions};});},[]);
- useEffect(()=>{let active=true;const controller=new AbortController();const u=new URL(location.href);const initial=u.searchParams.get('room')?.toUpperCase();if(initial){setCode(initial);setTab('join')}
-  const initialize=async()=>{try{await tableRequest('/api/table',{signal:controller.signal});if(!active)return;setInitialized(true);if(initial){try{const data=await tableRequest('/api/table?room='+initial,{signal:controller.signal});if(active)apply(data)}catch(error){if(active)setError(error instanceof Error?error.message:'暂时连接不上牌桌，请刷新重试')}}}catch{if(active){setInitialized(true);setError('暂时连接不上牌桌，请刷新重试')}}};void initialize();return()=>{active=false;controller.abort()};
- },[apply]);
+ const apply=useCallback((data:State)=>{setRoom((prev:State)=>{if(prev?.code!==data.code)return data;const messages=[...new Map([...(prev.messages??[]),...(data.messages??[])].map((m:any)=>[m.id,m])).values()].sort((a:any,b:any)=>a.at-b.at||a.id.localeCompare(b.id)).slice(-100);const interactions=[...new Map([...(prev.interactions??[]),...(data.interactions??[])].map((event:any)=>[event.id,event])).values()].sort((a:any,b:any)=>a.at-b.at||a.id.localeCompare(b.id)).slice(-40);return {...((prev.revision??prev.version??-1)>(data.revision??data.version??0)?prev:data),messages,interactions};});},[]);
+ const receive=useCallback((data:State)=>{if(data.left){setRoom(null);history.replaceState({},'','/')}else apply(data);setBusy(!!coordinator.current?.pending);if(!coordinator.current?.pending&&recoverableError.current){setError('');setNotice('已同步最新牌桌');recoverableError.current=false}},[apply]);
+ useEffect(()=>{
+  let active=true,timer:ReturnType<typeof setTimeout>,wake:(()=>void)|undefined;const controller=new AbortController();
+  const initial=new URL(location.href).searchParams.get('room')?.toUpperCase();
+  if(initial){setCode(initial);setTab('join');coordinator.current!.restore(initial);setBusy(!!coordinator.current!.pending)}
+  const pause=()=>new Promise<void>(resolve=>{wake=resolve;timer=setTimeout(resolve,1500)});
+  const disconnected=()=>{setConnected(false);recoverableError.current=true;setError('暂时连接不上牌桌，正在重新同步…')};
+  const initialize=async()=>{
+   while(active){try{await tableRequest('/api/table',{signal:controller.signal});break}catch{if(!active)return;disconnected();await pause()}}
+   if(!active)return;setInitialized(true);
+   if(!initial){setConnected(true);if(recoverableError.current){setError('');recoverableError.current=false}return}
+   while(active){try{
+    const data=await tableRequest(coordinator.current!.url(initial),{signal:controller.signal});if(!active)return;
+    if(!data.left&&(data.code!==initial||!Array.isArray(data.players)))throw new Error('牌桌暂未同步');
+    const recovered=await coordinator.current!.recover(data,controller.signal);if(active){receive(recovered.data);setConnected(true)}return;
+   }catch(error){
+    if(!active)return;
+    if(error instanceof TableRequestError&&error.status<500&&error.status!==409){coordinator.current!.clear();setBusy(false);recoverableError.current=false;setError(error.message);return}
+    disconnected();await pause();
+   }}
+  };
+  void initialize();return()=>{active=false;controller.abort();clearTimeout(timer);wake?.()};
+ },[receive]);
  useEffect(()=>{const id=setInterval(()=>setNow(Date.now()),500);return()=>clearInterval(id)},[]);
  useEffect(()=>{if(!room?.code)return;const code=room.code;
-  const poller=new TablePoller(async signal=>{const data=await tableRequest('/api/table?room='+code,{signal});if(data.code!==code||!Array.isArray(data.players))throw new Error('请重新加入房间');return data},apply,setConnected,()=>busyRef.current,()=>{});
+  const poller=new TablePoller(async signal=>{const data=await tableRequest(coordinator.current!.url(code),{signal});if(!data.left&&(data.code!==code||!Array.isArray(data.players)))throw new Error('请重新加入房间');const recovered=await coordinator.current!.recover(data,signal);return recovered.data},receive,setConnected,()=>busyRef.current,()=>{});
   const poll=()=>{if(navigator.onLine===false){poller.offline();return}void poller.poll()};
   const resume=()=>{if(!document.hidden&&navigator.onLine!==false)void poller.poll(true)};
   const offline=()=>poller.offline();const id=setInterval(poll,1200);poll();
   window.addEventListener('online',resume);window.addEventListener('offline',offline);window.addEventListener('focus',resume);window.addEventListener('pageshow',resume);document.addEventListener('visibilitychange',resume);
   return()=>{clearInterval(id);poller.stop();window.removeEventListener('online',resume);window.removeEventListener('offline',offline);window.removeEventListener('focus',resume);window.removeEventListener('pageshow',resume);document.removeEventListener('visibilitychange',resume)};
- },[room?.code,apply]);
+ },[room?.code,receive]);
  useEffect(()=>{setTargetEffect(null);setCooldownUntil(0);interactionRetry.current=null},[room?.code]);
  useEffect(()=>{setSelection(null)},[room?.turn,room?.phase,room?.round]);
  const {enabled:sound,toggle:toggleSound}=useTableSound(room,now,setNotice);
  useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),3000);return()=>clearTimeout(t)},[notice]);
- const action=useCallback(async(action:string,tile?:number)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');try{const current=roomRef.current;const data=await tableRequest('/api/table',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code:current?.code||code.trim().toUpperCase(),name,tile,version:current?.version})});if(data.left){setRoom(null);history.replaceState({},'','/')}else{apply(data);history.replaceState({},'','/?room='+data.code)}setSelection(null);setConnected(true);return data}catch(e){setError(e instanceof Error?e.message:'网络中断，请重试');throw e}finally{setBusy(false);busyRef.current=false}},[code,name,apply]);
+ const action=useCallback(async(action:string,tile?:number)=>{
+  if(busyRef.current||coordinator.current!.pending)return;busyRef.current=true;setBusy(true);setError('');recoverableError.current=false;
+  try{const current=roomRef.current,body={action,code:current?.code||code.trim().toUpperCase(),name,tile,version:current?.version,context:current?.actionContext};
+   const data=current?await coordinator.current!.perform(body):await tableRequest('/api/table',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+   receive(data);if(!data.left)history.replaceState({},'','/?room='+data.code);setSelection(null);setConnected(true);return data;
+  }catch(e){
+   if(e instanceof TableRequestError&&e.data.state){receive(e.data.state);setSelection(null);setConnected(true)}
+   if(e instanceof TableRequestError&&e.data.code==='STATE_CHANGED'){setNotice('牌桌已更新，请查看当前可选操作');return e.data.state}
+   if(coordinator.current!.pending){recoverableError.current=true;setError('连接暂时中断，正在确认刚才的操作…');setConnected(false)}else setError(e instanceof Error?e.message:'网络中断，请重试');
+   throw e;
+  }finally{setBusy(!!coordinator.current!.pending);busyRef.current=false}
+ },[code,name,receive]);
  const run=(a:string,t?:number)=>void action(a,t).catch(()=>{});
  useEffect(()=>{const ctx=(document as any).modelContext;if(!ctx?.registerTool)return;const ctrl=new AbortController();const register=(tool:any)=>Promise.resolve(ctx.registerTool(tool,{signal:ctrl.signal})).catch(()=>{});register({name:'read_mahjong_table',description:'Read this player’s visible mahjong table and legal actions. Other players’ concealed tiles are never exposed.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>roomRef.current??{status:'not_joined'}});register({name:'play_mahjong_action',description:'Perform a legal action on the current mahjong table: discard, hu, peng, gang, bu, or pass.',inputSchema:{type:'object',properties:{action:{type:'string',enum:['discard','hu','peng','gang','bu','pass']},tile:{type:'integer',minimum:0,maximum:26}},required:['action'],additionalProperties:false},execute:async(input:any)=>{if(!input||!['discard','hu','peng','gang','bu','pass'].includes(input.action))throw new Error('Invalid action');if(input.tile!==undefined&&(!Number.isInteger(input.tile)||input.tile<0||input.tile>26))throw new Error('Invalid tile');const result=await action(input.action,input.tile);return{phase:result.phase,options:result.options}}});return()=>ctrl.abort()},[action]);
  function pickInteraction(effect:InteractionKind){if(Date.now()<cooldownUntil){setNotice('互动间隔至少 3 秒，请稍等');return}interactionRetry.current=null;setTargetEffect(effect)}
@@ -71,7 +103,7 @@ export default function Home(){
 
  return <div className="app"><header className="topbar"><a className="brand" href="/" onClick={e=>{if(room)e.preventDefault()}}><span className="brand-mark">贵</span><span>贵阳小牌桌<small>GUIYANG MAHJONG CLUB</small></span></a><div className="top-actions"><span className="online-label"><Users size={16}/>好友联机 · 电脑补位</span><Button variant="ghost" className="header-button" onClick={()=>setRules(true)}><CircleHelp size={17}/><span>玩法说明</span></Button><SoundToggle enabled={sound} onToggle={()=>void toggleSound()}/></div></header>
  <main><div className="page-heading"><div><div className="eyebrow">闲来一局 · 贵阳捉鸡</div><h1>{room?'朋友到齐，就开一桌。':'约上朋友，摸一张好牌。'}</h1></div><div className="practice-badge"><Leaf size={15}/>休闲练习 · 仅计积分</div></div>
- <div className="game-layout"><section className="table-shell" aria-label="麻将牌桌"><div className="table-top"><span>{room?`第 ${room.round||1} 局`:'好友牌桌'}<i/>不定缺 · 不可吃牌</span><span className="connection">{connected?<Wifi size={15}/>:<WifiOff size={15}/>} {room?(connected?'已连接':'正在重连'):'随时开桌'}</span></div><div ref={tableRef} className={cn("felt",room&&room.phase!=="lobby"&&"in-game",opts.some(o=>o!=='discard')&&"has-table-actions")}><Seat offset={2}/><Seat offset={3}/><Seat offset={1}/>
+ <div className="game-layout"><section className="table-shell" aria-label="麻将牌桌"><div className="table-top"><span>{room?`第 ${room.round||1} 局`:'好友牌桌'}<i/>不定缺 · 不可吃牌</span><span className="connection">{connected?<Wifi size={15}/>:<WifiOff size={15}/>} {room?(busy?'正在确认操作':connected?'已连接':'正在重连'):'随时开桌'}</span></div><div ref={tableRef} className={cn("felt",room&&room.phase!=="lobby"&&"in-game",opts.some(o=>o!=='discard')&&"has-table-actions")}><Seat offset={2}/><Seat offset={3}/><Seat offset={1}/>
  {!room||room.phase==='lobby'?<div className="table-center waiting"><span className="table-seal">贵阳<br/>捉鸡</span></div>:<div className="table-center playing"><div className="round-center"><div className="compass"><span>北</span><b>{room.remaining}</b><span>张余牌</span></div><div className="turn-message">{room.phase==='done'?'本局结束':room.phase==='claim'?'等待碰 / 杠 / 胡':mine?'轮到你出牌':`${room.players[room.turn]?.name}出牌`}<small>{room.phase!=='done'&&<><Clock3 size={13}/>{seconds} 秒{room.players[room.turn]?.bot&&room.phase==='play'?' · 电脑':''}</>}</small></div></div>{room.claim&&<div className="claim-banner">{room.players[room.claim.from]?.name}{room.claim.rob?'尝试补杠':'打出'} <b>{tileName(room.claim.t)}</b></div>}</div>}
  {room&&room.phase!=='lobby'&&room.players.map((p:any,i:number)=><div className={'discard-zone discard-'+((i-room.me+4)%4)} key={i} aria-label={p.name+'正前方的弃牌'}><div className="discard-grid">{p.river.map((t:number,j:number)=><Tile t={t} small sideways={p.charges?.includes(j)} key={j}/>)}</div></div>)}
  {room&&<TableActions options={opts} phase={room.phase} busy={busy} onAction={run} seconds={seconds} claimText={room.claim?`${room.players[room.claim.from]?.name}${room.claim.rob?'尝试补杠':'打出'} ${tileName(room.claim.t)}`:undefined}/>}

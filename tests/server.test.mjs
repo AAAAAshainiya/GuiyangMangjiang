@@ -6,13 +6,14 @@ import ts from 'typescript';
 import * as engine from '../lib/game.ts';
 import * as interaction from '../lib/interaction.ts';
 const sqlite=new DatabaseSync(':memory:');for(const file of fs.readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())sqlite.exec(fs.readFileSync('drizzle/'+file,'utf8'));
+let failVisibleOnce=false;
 const DB = {
  prepare(sql) {
   return {bind(...args) {
    const s=sqlite.prepare(sql);
    return {
     async first(){return s.get(...args)??null},
-    async all(){return {results:s.all(...args)}},
+    async all(){if(failVisibleOnce&&sql.startsWith('SELECT id, sender')){failVisibleOnce=false;throw new Error('simulated response loss after commit')}return {results:s.all(...args)}},
     async run(){const r=s.run(...args);return {meta:{changes:r.changes}}}
    };
   }};
@@ -80,3 +81,52 @@ await call(b,{action:'leave',code});const after=(await read(a,code)).data;assert
 let lobby=await call(a,{action:'create',name:'原房主'});await call(a,{action:'leave',code:lobby.code});lobby=await call(b,{action:'join',code:lobby.code,name:'新房主'});assert.equal(lobby.isHost,true);
 const malicious=await API.POST(new Request(base+'/api/table',{method:'POST',headers:{'content-type':'application/json',cookie:a,origin:'https://evil.test'},body:JSON.stringify({action:'create',name:'Evil'})}));assert.equal(malicious.status,403);
 console.log('PASS: real SQLite routes; room chat privacy, emoji/text, retry deduplication, cooldown, length validation, 100-message retention, independent play version; room operations, hidden hands and CSRF.');
+
+// v12: heartbeat revisions, atomic receipts and same-claim concurrency.
+const [d,e,f,g]=await Promise.all([guest(),guest(),guest(),guest()]);
+let stable=await call(d,{action:'create',name:'稳定测试'}),stableCode=stable.code;
+const stored=()=>JSON.parse(sqlite.prepare('SELECT state FROM mahjong_rooms WHERE code = ?').get(stableCode).state);
+function storeRoom(r){sqlite.prepare('UPDATE mahjong_rooms SET state = ?, updated = ? WHERE code = ?').run(JSON.stringify(r),Date.now(),r.code)}
+let rs=stored();rs.players[0].seen=Date.now()-20000;storeRoom(rs);
+const heartbeat=(await read(d,stableCode)).data;
+assert.equal(heartbeat.version,stable.version,'online heartbeat preserves logical play version');
+assert.equal(heartbeat.revision,stable.revision+1,'heartbeat still atomically updates storage revision');
+const readyBody={action:'ready',code:stableCode,version:stable.version,context:stable.actionContext,clientId:crypto.randomUUID()};
+const concurrent=await Promise.all([call(d,readyBody),call(d,readyBody),call(d,readyBody)]);
+assert(concurrent.every(x=>x.actionAck.status==='applied'));
+stable=(await read(d,stableCode)).data;assert.equal(stable.players[0].ready,true);assert.equal(stable.version,heartbeat.version+1,'same ID cannot toggle readiness twice');
+assert(!JSON.stringify(stable).includes('actionReceipts'),'private receipts never appear in normal views');
+await assert.rejects(call(d,{...readyBody,action:'fill'}),/操作编号已经使用/);
+const response=async(cookie,body)=>{const r=await API.POST(new Request(base+'/api/table',{method:'POST',headers:{'content-type':'application/json',cookie},body:JSON.stringify(body)}));return {status:r.status,data:await r.json()}};
+const stale=await response(d,{action:'fill',code:stableCode,version:heartbeat.version,clientId:crypto.randomUUID()});
+assert.equal(stale.status,409);assert.equal(stale.data.code,'STATE_CHANGED');assert.equal(stale.data.state.version,stable.version);
+// A response can fail after its atomic mutation already committed.
+const lost={action:'ready',code:stableCode,version:stable.version,clientId:crypto.randomUUID()};
+failVisibleOnce=true;const lostReply=await response(d,lost);assert.equal(lostReply.status,500);
+const ack=async(cookie,code,id)=>{const r=await API.GET(new Request(base+'/api/table?room='+code+'&actionId='+id,{headers:{cookie}}));return {status:r.status,data:await r.json()}};
+const recovered=await ack(d,stableCode,lost.clientId);assert.equal(recovered.data.actionAck.status,'applied');assert.equal(recovered.data.players[0].ready,false);
+const replay=await call(d,lost);assert.equal(replay.players[0].ready,false);assert.equal(replay.version,recovered.data.version);
+await call(e,{action:'join',code:stableCode,name:'另一位'});
+assert.equal((await ack(e,stableCode,lost.clientId)).data.actionAck.status,'not_found','receipts belong only to the original actor');
+assert.equal((await call(d,{action:'join',code:stableCode,name:'重复加入'})).me,0,'rejoin restores the original guest seat');
+assert.equal((await read(d,stableCode)).data.players[0].name,'稳定测试');
+// Two seats answer one unchanged claim using their original snapshots.
+const race=engine.create('RACE',d.split('=')[1],'出牌者');race.players=[d,e,f,g].map((cookie,i)=>engine.player(cookie.split('=')[1],'并发'+i));
+race.phase='play';race.round=1;race.scoringVersion=3;race.version=0;race.playVersion=0;race.turn=0;race.wall=[13,14,15,16];race.deadline=Date.now()+60000;race.drawn=18;race.drawnIndex=13;
+race.players[0].hand=[0,1,2,3,4,5,6,7,8,9,10,11,12,18];
+race.players[1].hand=[19,20,21,22,23,21,22,23,24,25,26,26,26];
+race.players[2].hand=[18,18,0,0,2,2,4,4,6,6,8,8,10];
+race.players[3].hand=[1,1,3,3,5,5,7,7,9,9,10,11,12];
+engine.act(race,0,'discard',18,Date.now());assert.equal(race.phase,'claim');assert.deepEqual(Object.keys(race.claim.choices),['1','2']);
+sqlite.prepare('INSERT INTO mahjong_rooms (code,state,version,updated) VALUES (?,?,0,?)').run(race.code,JSON.stringify(race),Date.now());
+const [huView,pengView]=await Promise.all([read(e,race.code),read(f,race.code)]);
+assert(huView.data.options.includes('hu'));assert(pengView.data.options.includes('peng'));
+const bodies=[{action:'peng',code:race.code,version:pengView.data.version,context:pengView.data.actionContext,clientId:crypto.randomUUID()},{action:'hu',code:race.code,version:huView.data.version,context:huView.data.actionContext,clientId:crypto.randomUUID()}];
+await Promise.all([call(f,bodies[0]),call(e,bodies[1])]);
+const final=(await read(d,race.code)).data;assert.equal(final.phase,'done');assert.equal(final.result.winner,1,'hu retains priority over simultaneous peng');assert.equal(final.version,2);
+const scores=final.players.map(p=>p.score);await Promise.all([call(f,bodies[0]),call(e,bodies[1])]);assert.deepEqual((await read(d,race.code)).data.players.map(p=>p.score),scores,'repeated acknowledgments cannot settle twice');
+// A different concealed draw cannot leak into an observer's action context.
+const secret=engine.create('SAFE',d.split('=')[1],'观察者');secret.players=[d,e].map((cookie,i)=>engine.player(cookie.split('=')[1],'隐私'+i));secret.turn=1;secret.drawn=23;secret.drawnIndex=12;
+const contextBefore=engine.view(secret,d.split('=')[1]).actionContext;secret.drawn=26;secret.drawnIndex=2;assert.equal(engine.view(secret,d.split('=')[1]).actionContext,contextBefore);
+const leaveBody={action:'leave',code:stableCode,version:(await read(d,stableCode)).data.version,clientId:crypto.randomUUID()};await call(d,leaveBody);assert.equal((await ack(d,stableCode,leaveBody.clientId)).data.left,true);assert.equal((await call(d,leaveBody)).left,true);
+console.log('PASS: v12 real SQLite heartbeat separation, atomic action deduplication, post-commit response loss, private acknowledgments, immediate stale-state snapshot, seat restoration, concurrent claim priority, one settlement and leave confirmation.');
