@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+import * as React from 'react';
+import * as jsx from 'react/jsx-runtime';
+import * as icons from 'lucide-react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import * as game from '../lib/game.ts';
+function mod(object){return new vm.SyntheticModule(Object.keys(object),function(){for(const k of Object.keys(object))this.setExport(k,object[k])})}
+const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game)};
+const source=ts.transpileModule(fs.readFileSync('app/game-social.tsx','utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+const module=new vm.SourceTextModule(source);await module.link(s=>imports[s]);await module.evaluate();
+const {ScoreOverview,RoundEnd,ChatBubble,ChatPanel}=module.namespace;
+const room={code:'ABCDEFGH',round:1,me:0,players:[0,1,2,3].map(i=>({name:'玩家'+i,melds:[]})),result:{winner:0,from:-1,pattern:'平胡',kind:'自摸',flip:17,rooster:9,huValues:[3,0,0,0],beanValues:[0,4,0,4],values:[13,7,0,12],delta:[25,-7,-38,20]},messages:[]};
+let html=renderToStaticMarkup(React.createElement(ScoreOverview,{room}));
+assert.match(html,/<td>3<\/td><td>0<\/td><td>13<\/td><td class="positive"><b>\+25<\/b>/,'own values are distinct from actual profit');
+html=renderToStaticMarkup(React.createElement(RoundEnd,{room,Tile:({t,back})=>React.createElement('span',null,back?'牌背':game.tileName(t))}));
+assert.match(html,/flip-animation/);assert.match(html,/9筒/);assert.match(html,/1筒/);assert.doesNotMatch(html,/score-overview/,'flip appears before summary');
+const drawn={...room,result:{...room.result,winner:-1,flip:null,rooster:null,kind:'流局'}};
+html=renderToStaticMarkup(React.createElement(RoundEnd,{room:drawn,Tile:()=>null}));assert.match(html,/central-summary/);assert.doesNotMatch(html,/flip-animation/);
+html=renderToStaticMarkup(React.createElement(ChatBubble,{messages:[{id:'1',seat:1,content:'<script>alert(1)</script>',kind:'text',at:1000}],seat:1,now:2000,enabled:true}));assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
+assert.equal(renderToStaticMarkup(React.createElement(ChatBubble,{messages:[{id:'1',seat:1,content:'你好',kind:'text',at:1000}],seat:1,now:5000,enabled:true})),'','bubble disappears at four seconds');
+assert.equal(renderToStaticMarkup(React.createElement(ChatBubble,{messages:[{id:'1',seat:1,content:'你好',kind:'text',at:1000}],seat:1,now:2000,enabled:false})),'','bubble preference is respected');
+html=renderToStaticMarkup(React.createElement(ChatPanel,{room,onUpdate:()=>{},onBubbles:()=>{}}));assert.match(html,/牌友聊天/);assert.doesNotMatch(html,/chat-history/,'chat starts collapsed');
+console.log('PASS: personal score columns, net total, flip-before-summary, no-flip drawn round, escaped chat, four-second bubbles and chat entry.');
