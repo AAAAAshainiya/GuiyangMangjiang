@@ -96,3 +96,13 @@ console.log('PASS: actual Home removed hint card, retained wait tiles, and synch
 all=nodes(render());const below=all.find(n=>n.props?.className==='table-below'),side=all.find(n=>n.props?.className==='side-panel');assert(below);assert(nodes(below).some(n=>n.type===RulesPublicPanel));assert(!nodes(side).some(n=>n.type===RulesPublicPanel));assert(!nodes(side).some(n=>n.props?.className==='result-card'));assert(!nodes(side).some(n=>n.props?.room&&n.type?.name==='HistoryPanel'));
 let publicRules=nodes(below).find(n=>n.type===RulesPublicPanel),savedRules=game.defaultRules();savedRules.chickenTiles=[16,18];transport=async(url,init)=>{const body=JSON.parse(init.body);assert.equal(body.action,'rules');assert.deepEqual(body.rules,savedRules);return {...ended,rules:savedRules,ruleRevision:2,version:8,revision:8}};
 await publicRules.props.onSave(savedRules);assert.deepEqual(slots[0].rules,savedRules);console.log('PASS: actual Home places history and rules below table, removes side settlement, and submits full rules through the confirmed action coordinator.');
+
+// A cramped table scrolls its calls into view without moving the page or hand.
+slots=[];effects.length=0;slots[0]={...ended,phase:'claim',actionContext:'claim19'};
+let callTree=render(),felt=nodes(callTree).find(n=>n.props?.className?.includes?.('felt')&&n.props?.ref);
+const action={offsetHeight:70,getBoundingClientRect:()=>({top:310})};
+felt.props.ref.current={scrollTop:0,scrollHeight:600,clientHeight:200,getBoundingClientRect:()=>({top:10}),querySelector:()=>action};
+const callEffect=effects.find(fn=>fn.toString().includes('bottom + 8'));assert(callEffect);callEffect();assert.equal(felt.props.ref.current.scrollTop,178);
+slots[0]={...ended};effects.length=0;render();effects.find(fn=>fn.toString().includes('bottom + 8'))();assert.equal(felt.props.ref.current.scrollTop,0);
+assert.match(renderToStaticMarkup(render()),/has-hand-app/);
+console.log('PASS: actual Home keeps mobile hand layout active and scrolls only the felt for legal calls; settlement resets that scroll.');
