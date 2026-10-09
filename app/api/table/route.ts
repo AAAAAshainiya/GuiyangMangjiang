@@ -99,7 +99,7 @@ export async function POST(req:Request){try{
     const name=r.players[i].name;
     if(r.phase==='play'||r.phase==='claim'){r.players[i].id='bot:'+crypto.randomUUID();r.players[i].bot=true;r.players[i].name=name+'（托管）';r.players[i].ready=true;if(r.phase==='play'&&r.turn===i)r.deadline=now+botDelay(r)}
     else{r.players.splice(i,1);r.phase='lobby';r.result=null;r.dealer=Math.max(0,Math.min(r.dealer,r.players.length-1))}
-    if(r.host===id)r.host=r.players.find(p=>!p.bot)?.id??'';log(r,`${name}离开牌桌`);left=true;
+    log(r,`${name}离开牌桌`);if(r.host===id){const humans=r.players.filter(p=>!p.bot),next=humans[Math.floor(Math.random()*humans.length)];r.host=next?.id??'';if(next)log(r,`${next.name}成为新房主`)}left=true;
    }else if(b.action==='fill'||b.action==='removeBots'){
     if(r.host!==id)throw new Error('只有房主可以调整电脑');if(!['lobby','done'].includes(r.phase))throw new Error('本局结束后才能调整座位');
     if(b.action==='fill'){while(r.players.length<4){const n=r.players.length;r.players.push(player('bot:'+crypto.randomUUID(),['黔灵阿青','花溪小北','南明阿川'][n-1]??'电脑牌友',true))}log(r,'空位已用电脑补齐')}

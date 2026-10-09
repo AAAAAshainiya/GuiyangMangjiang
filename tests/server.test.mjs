@@ -166,3 +166,24 @@ const afterRules=engine.defaultRules(),lostRulesId=crypto.randomUUID(),lostRules
 let confirm=await API.GET(new Request(base+'/api/table?room='+configured.code+'&actionId='+lostRulesId,{headers:{cookie:a}}));configured=await confirm.json();assert.equal(configured.actionAck.status,'applied');assert.deepEqual(configured.rules,afterRules);assert.equal(configured.ruleRevision,3);assert.equal(JSON.stringify(configured.result),oldBill);configured=await call(a,lostRulesBody);assert.equal(configured.ruleRevision,3);assert.deepEqual(configured.history[0].bill.result.delta,oldDelta);assert.deepEqual(configured.history[0].bill.result.rules,customRules);
 configured=await call(a,{action:'ready',code:configured.code});configured=await call(b,{action:'ready',code:configured.code});configured=await call(a,{action:'start',code:configured.code});assert.deepEqual(configured.roundRules,afterRules);assert.equal(configured.roundRuleRevision,3);assert.deepEqual(configured.history[0].bill.result.rules,customRules);
 console.log('PASS: real SQLite host-only configurable rules, shared refresh, invalid input/active-round rejection, same-ID replay/conflict, custom actual settlement, lost-response confirmation and unchanged historical rule snapshot.');
+
+// Host succession is random among remaining humans, never a bot; receipts
+// preserve the chosen successor across retries and only that seat gets rights.
+const originalRandom=Math.random;
+async function succession(choice,playing){
+ const members=await Promise.all([guest(),guest(),guest()]);let table=await call(members[0],{action:'create',name:'离任房主'});const key=table.code;
+ await call(members[1],{action:'join',code:key,name:'第一位真人'});await call(members[2],{action:'join',code:key,name:'第二位真人'});await call(members[0],{action:'fill',code:key});
+ if(playing){for(const member of members)await call(member,{action:'ready',code:key});table=await call(members[0],{action:'start',code:key})}
+ Math.random=()=>choice;
+ const body={action:'leave',code:key,version:(await read(members[0],key)).data.version,clientId:crypto.randomUUID()};assert.equal((await call(members[0],body)).left,true);
+ const selected=choice===0?1:2,other=selected===1?2:1,after=(await read(members[selected],key)).data;assert.equal(after.isHost,true);assert.equal((await read(members[other],key)).data.isHost,false);assert(after.logs.some(s=>s.includes((selected===1?'第一位真人':'第二位真人')+'成为新房主')));
+ const stored=JSON.parse(sqlite.prepare('SELECT state FROM mahjong_rooms WHERE code=?').get(key).state);assert.equal(stored.host,members[selected].split('=')[1]);assert(!stored.players.find(p=>p.id===stored.host).bot);if(playing){assert(stored.players[0].bot);assert.notEqual(stored.phase,'lobby')}
+ await call(members[0],body);assert.equal((await read(members[selected],key)).data.isHost,true);
+ if(!playing){await assert.rejects(call(members[other],{action:'speed',code:key,tile:1}),/只有房主/);assert.equal((await call(members[selected],{action:'speed',code:key,tile:1})).fast,true)}
+ return {members,key};
+}
+try{
+ await succession(0,false);await succession(.999,false);await succession(.999,true);
+ const members=await Promise.all([guest(),guest()]);const table=await call(members[0],{action:'create',name:'最后真人'});await call(members[0],{action:'fill',code:table.code});await call(members[0],{action:'leave',code:table.code});assert.equal(JSON.parse(sqlite.prepare('SELECT state FROM mahjong_rooms WHERE code=?').get(table.code).state).host,'');assert.equal((await call(members[1],{action:'join',code:table.code,name:'后来真人'})).isHost,true);
+}finally{Math.random=originalRandom}
+console.log('PASS: real API randomly selects either remaining human, excludes bots during play/lobby, synchronizes host rights, retries the same leave without reselection and recovers all-bot rooms.');

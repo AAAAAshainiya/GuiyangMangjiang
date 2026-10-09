@@ -3,8 +3,8 @@ import {act,advance,create,setRoomRules,player,start,view,type Room} from './gam
 // All game state and its clock stay in this browser, never in an online room.
 export class SoloGame{
  room:Room;pausedAt:number|null=null;
- constructor(name='单人牌友',avatar='🐼',now=Date.now()){
-  this.room=create('SOLO','solo',name);this.room.players[0].avatar=avatar;
+ constructor(name='单人牌友',avatar='🐼',now=Date.now(),fast=false){
+  this.room=create('SOLO','solo',name);this.room.fast=fast;this.room.players[0].avatar=avatar;
   this.room.players.push(...['黔灵阿青','花溪小北','南明阿川'].map((n,i)=>player('bot:solo'+i,n,true)));
   this.room.players[0].ready=true;start(this.room,now);this.room.version=0;this.room.playVersion=0;
  }
