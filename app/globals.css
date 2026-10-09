@@ -465,3 +465,10 @@ footer{display:flex;flex-direction:column;align-items:center;text-align:center}
 /* The table credit is part of the hand area, below the cards and controls. */
 .hand-area>.table-signature{margin-top:4px;padding:2px 4px 0;min-height:19px;color:#718062;text-align:right;line-height:17px}
 .check-ready-section p,.responsibility-section p{overflow-wrap:anywhere}
+
+/* Compact, high-contrast next-round action in every central settlement panel. */
+.round-next-panel .next-round>button{min-height:44px;min-width:min(116px,100%);max-width:100%;padding:10px 20px;border:2px solid #bd8e37;border-radius:10px;background:#f2cb6d;color:#173b2d;font-size:16px;line-height:1.35;font-weight:750;white-space:normal;box-shadow:0 3px 0 #795723,0 0 0 3px #f2cb6d22,0 5px 16px #061b1b33}
+.round-next-panel .next-round>button:not(:disabled):hover{background:#ffdc87;border-color:#d1a448}
+.round-next-panel .next-round>button:focus-visible{outline:3px solid #244d39;outline-offset:3px}
+.round-next-panel .next-round>button:not(:disabled):active{box-shadow:0 1px 0 #795723,0 0 0 3px #f2cb6d22}
+.round-next-panel .next-round>button:disabled{background:#dfe7d4;color:#53604e;border-color:#9bad8b;opacity:1;box-shadow:none}
