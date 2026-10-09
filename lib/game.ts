@@ -23,6 +23,13 @@ export function setRoomRules(r:Room,i:number,value:unknown){
 }
 export const botDelay=(r:Room)=>r.fast?500:2000;
 export function log(r:Room,s:string){r.logs=[s,...r.logs].slice(0,30)}
+export function terminateRound(r:Room,i:number,now:number){
+ if(r.players[i]?.id!==r.host)throw new Error('只有房主可以终止牌局');
+ if(!['play','claim'].includes(r.phase))throw new Error('本局已经结束，不能终止');
+ finish(r,-1,-1,'房主终止',now);
+ r.drawn=null;r.drawnIndex=null;r.canKong=false;r.afterKong=false;
+ log(r,`${r.players[i].name}终止了本局，本局不加分、不扣分`);
+}
 function sound(r:Room,kind:SoundEvent['kind'],seat:number,now:number,delayMs=0){const seq=(r.soundSeq??0)+1;r.soundSeq=seq;r.soundEvents=[...(r.soundEvents??[]),{seq,kind,seat,at:now,delayMs}].slice(-40)}
 function tableEvent(r:Room,seat:number,kind:TableEvent['kind'],from:number|null,tile:number|null,now:number){const seq=r.tableSeq=(r.tableSeq??0)+1;r.tableEvents=[...(r.tableEvents??[]),{seq,seat,kind,from,tile:kind==='an'?null:tile,at:now}].slice(-40)}
 const sort=(a:number[])=>a.sort((a,b)=>a-b);
@@ -83,6 +90,7 @@ export function huScore(r:Room,i:number,kind:string){
  return {name:parts.map(p=>p.name).join('·'),points:parts.reduce((n,p)=>n+p.points,0),parts};
 }
 function finish(r:Room,winner:number,from:number,kind:string,now:number,winningTile:number|null=null){
+ const terminated=kind==='房主终止';
  const modern=r.scoringVersion===3,ready=r.players.map((p,i)=>i===winner||waits(p).length>0);
  const hot=modern&&winner>=0&&from>=0&&kind==='热炮';
  const burned=r.players.map((_,i)=>hot&&i===from),eligible=ready.map((v,i)=>v&&!burned[i]);
@@ -113,7 +121,7 @@ function finish(r:Room,winner:number,from:number,kind:string,now:number,winningT
  }
  if(winner>=0)sound(r,from<0?'zimo':'hu',winner,now);if(flip!==null)sound(r,'flip',winner,now,2100);sound(r,'settle',winner,now,winner<0?550:flip!==null?4200:1600);
  r.players.forEach((p,i)=>{delta[i]+=hu[i]+chicken[i];p.score+=delta[i];p.ready=p.bot});
- const revealed=ready,waitTiles=r.players.map(p=>waits(p));
+ const revealed=terminated?ready.map(()=>false):ready,waitTiles=r.players.map(p=>waits(p));
  const readyInfo=r.players.map((_,i)=>({ready:ready[i],waits:waitTiles[i].map(tile=>({tile,discard:!!winAllowed(r,i,tile),selfDraw:true}))}));
  // Explanations preserve canceled items without altering the scored ledgers.
  const chickenAudit=r.players.map((_,i)=>{
@@ -123,7 +131,8 @@ function finish(r:Room,winner:number,from:number,kind:string,now:number,winningT
  });
  const beanAudit=(r.beanEvents??[]).map(e=>({...e,status:e.robbed?'robbed':winner<0?'drawn':burned[e.seat]?'burned':(modern||r.beanRequiresReady)&&!eligible[e.seat]?'notReady':'counted'}));
  r.result={rules:validateRules(activeRules(r)),ruleRevision:r.roundRuleRevision??1,flipPenaltyOnlyFixed:!!r.flipPenaltyOnlyFixed,revealed,waitTiles,readyInfo,winningTile,winner,from,kind,pattern:pat?.name,flip,rooster,values,huValues,beanValues:r.beanValues?[...r.beanValues]:r.players.map(p=>p.melds.some(m=>m.k==='gang')?null:0),beanTransfers:r.beanTransfers?[...r.beanTransfers]:null,beanRequiresReady:r.beanRequiresReady??false,chickenDetails:detailValues,chickenAudit,beanAudit,detailVersion:1,beanAuditComplete:r.beanEventsComplete??false,claimedAuditComplete:r.beanEventsComplete??false,scoringVersion:r.scoringVersion??1,hu,chicken,beans:[...r.beans],delta,...(modern?{eligible,burned,huParts,huPayable,hotPenalty,chickenTransfers}:{})};
- r.phase='done';r.claim=null;r.deadline=0;r.dealer=winner>=0?winner:(r.dealer+1)%4;archiveRound(r,now);log(r,winner<0?'牌墙已摸完，本局流局':`${r.players[winner].name} ${kind}！${pat?.name}${hot?`（热炮额外 ${hotPenalty} 分，放炮者鸡豆烧掉）`:''}`);
+ if(terminated)r.result.terminated=true;
+ r.phase='done';r.claim=null;r.deadline=0;r.dealer=winner>=0?winner:terminated?r.dealer:(r.dealer+1)%4;archiveRound(r,now);log(r,winner<0?(terminated?'房主终止，本局不加分、不扣分':'牌墙已摸完，本局流局'):`${r.players[winner].name} ${kind}！${pat?.name}${hot?`（热炮额外 ${hotPenalty} 分，放炮者鸡豆烧掉）`:''}`);
 }
 function makeClaim(r:Room,from:number,t:number,rob:boolean,now:number,hot=false){const choices:Record<string,string[]>={};r.players.forEach((p,i)=>{if(i===from)return;const a=[];if(winAllowed(r,i,t,rob))a.push('hu');if(!rob){if(count(p.hand,t)>=3&&r.wall.length)a.push('gang');if(count(p.hand,t)>=2)a.push('peng')}if(a.length)choices[i]=a});
  if(Object.keys(choices).length){r.claim={from,t,rob,hot,choices,answers:{}};r.phase='claim';r.deadline=now+15000;return true}return false;

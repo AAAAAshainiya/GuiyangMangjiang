@@ -36,3 +36,17 @@ const noStore=new TableActionCoordinator(async()=>({code:'ABCD',version:4}),bloc
 const oldFetch=globalThis.fetch;globalThis.fetch=async()=>Response.json({code:'STATE_CHANGED',state:{version:7},error:'updated'},{status:409});
 await assert.rejects(tableRequest('/api/table'),e=>e instanceof TableRequestError&&e.status===409&&e.data.state.version===7);globalThis.fetch=oldFetch;
 console.log('PASS: v12 client acknowledgments, refresh restoration, identical-ID retries, changed-turn cancellation, duplicate lock, leave recovery, concurrent-resume lock, blocked storage and typed snapshot errors.');
+
+for(const action of ['kick','terminate']){
+ const payload={action,code:'ABCD',tile:action==='kick'?1:undefined,round:2,version:3};
+ const uncertain=new TableActionCoordinator(async()=>{throw new Error('timeout')},storage);await assert.rejects(uncertain.perform(payload));const id=uncertain.pending.clientId;
+ const refreshed=new TableActionCoordinator(async(url,init)=>{const p=JSON.parse(init.body);assert.equal(p.clientId,id);assert.equal(p.round,2);return {code:'ABCD',version:5,actionAck:{clientId:id,status:'applied'}}},storage);refreshed.restore('ABCD');assert.equal(refreshed.pending.action,action);refreshed.retryAt=0;
+ const snapshot={code:'ABCD',version:action==='terminate'?4:3,round:2,phase:'play',isHost:true,actionAck:{clientId:id,status:'not_found'}};
+ assert.equal((await refreshed.recover(snapshot)).outcome,'confirmed');assert.equal(refreshed.pending,null);
+ await assert.rejects(uncertain.perform(payload));assert.equal((await uncertain.recover({left:true,kicked:true})).outcome,'changed');assert.equal(uncertain.pending,null);
+}
+{
+ const stop=new TableActionCoordinator(async()=>{throw new Error('timeout')},storage);await assert.rejects(stop.perform({action:'terminate',code:'ABCD',round:2,version:3}));const id=stop.pending.clientId;
+ assert.equal((await stop.recover({code:'ABCD',version:4,round:3,phase:'play',isHost:true,actionAck:{clientId:id,status:'not_found'}})).outcome,'changed');assert.equal(stop.pending,null,'new round must cancel an old termination request');
+}
+console.log('PASS: v25 persisted kick/terminate retries, stable IDs, same-round termination after intervening play, no next-round termination and kicked-session pending cleanup.');

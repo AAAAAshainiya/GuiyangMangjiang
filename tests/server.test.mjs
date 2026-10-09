@@ -187,3 +187,40 @@ try{
  const members=await Promise.all([guest(),guest()]);const table=await call(members[0],{action:'create',name:'最后真人'});await call(members[0],{action:'fill',code:table.code});await call(members[0],{action:'leave',code:table.code});assert.equal(JSON.parse(sqlite.prepare('SELECT state FROM mahjong_rooms WHERE code=?').get(table.code).state).host,'');assert.equal((await call(members[1],{action:'join',code:table.code,name:'后来真人'})).isHost,true);
 }finally{Math.random=originalRandom}
 console.log('PASS: real API randomly selects either remaining human, excludes bots during play/lobby, synchronizes host rights, retries the same leave without reselection and recovers all-bot rooms.');
+
+// v25: host-only termination/kicking, stable confirmation and kicked-session exit.
+const put=r=>sqlite.prepare('UPDATE mahjong_rooms SET state=?,version=?,updated=? WHERE code=?').run(JSON.stringify(r),r.version??0,Date.now(),r.code);
+const get=code=>JSON.parse(sqlite.prepare('SELECT state FROM mahjong_rooms WHERE code=?').get(code).state);
+async function managedTable(){const people=await Promise.all([guest(),guest(),guest(),guest()]);let v=await call(people[0],{action:'create',name:'管理房主'});for(let i=1;i<4;i++)v=await call(people[i],{action:'join',name:'牌友'+i,code:v.code});return {people,code:v.code}}
+for(const phase of ['play','claim']){
+ const {people,code:key}=await managedTable();let r=get(key);r.players.forEach((p,i)=>{p.ready=true;p.score=[20,-8,3,-15][i]});engine.start(r,Date.now());r.deadline=Date.now()+60000;
+ r.beans=[12,-4,-4,-4];r.beanValues=[4,0,0,0];r.beanTransfers=[1,2,3].map(from=>({from,to:0,points:4}));r.beanEvents=[{seat:0,type:'an',tile:3,payers:[1,2,3],unit:4}];r.players[1].hand=[0,1,2,3,4,5,9,10,11,18,18,18,6];
+ if(phase==='claim'){r.phase='claim';r.claim={from:0,t:6,rob:false,choices:{1:['hu'],2:['peng']},answers:{}}}put(r);
+ const v=(await read(people[0],key)).data,body={action:'terminate',code:key,round:v.round,version:v.version,clientId:crypto.randomUUID()};
+ assert.equal((await response(people[1],body)).status,403);
+ const cannotKick=await response(people[0],{action:'kick',code:key,tile:1,version:v.version,clientId:crypto.randomUUID()});assert.equal(cannotKick.status,400);assert.match(cannotKick.data.error,/对局中不能踢人/);
+ const dealer=r.dealer,points=r.players.map(p=>p.score);if(phase==='play'){failVisibleOnce=true;assert.equal((await response(people[0],body)).status,500);assert.equal((await ack(people[0],key,body.clientId)).data.actionAck.status,'applied')}const stopped=await call(people[0],body);assert.equal(stopped.phase,'done');assert(stopped.result.terminated);assert.equal(stopped.result.kind,'房主终止');assert.equal(stopped.result.flip,null);assert.equal(stopped.dealer,dealer);assert(stopped.result.delta.every(n=>n===0));assert(stopped.result.beans.every(n=>n===0));assert(stopped.result.hu.every(n=>n===0));assert(stopped.result.chicken.every(n=>n===0));assert.deepEqual(stopped.players.map(p=>p.score),points);assert.equal(stopped.claim,null);assert.equal(stopped.deadline,0);assert.equal(stopped.history.length,1);assert(stopped.history[0].bill.result.terminated);assert.equal(stopped.players[1].hand.length,0,'termination cannot expose a ready opponent hand');assert(stopped.players.every(p=>!p.revealed));
+ assert.deepEqual((await call(people[0],body)).players.map(p=>p.score),points);assert.equal(get(key).history.length,1,'retry does not duplicate termination/history');
+ const oldBill=JSON.stringify(get(key).history);const kick={action:'kick',code:key,tile:1,version:stopped.version,round:stopped.round,clientId:crypto.randomUUID()};if(phase==='play'){failVisibleOnce=true;assert.equal((await response(people[0],kick)).status,500);assert.equal((await ack(people[0],key,kick.clientId)).data.actionAck.status,'applied')}const kicked=await call(people[0],kick);assert.equal(kicked.phase,'lobby');assert.equal(kicked.players.length,3);assert.deepEqual(kicked.players.map(p=>p.score),[20,3,-15]);assert.equal(JSON.stringify(get(key).history),oldBill,'seat removal cannot rewrite the completed bill');
+ assert.equal((await call(people[0],kick)).players.length,3,'same target index must not remove the shifted next player on retry');
+ const removed=await read(people[1],key);assert.equal(removed.status,200);assert(removed.data.left&&removed.data.kicked);assert.equal(removed.data.message,'你已被房主移出房间');assert(!('players' in removed.data));assert((await call(people[1],{action:'ready',code:key})).kicked);
+ assert(!JSON.stringify(kicked).includes(people[1].split('=')[1]),'kicked guest token is private');assert(!('kicked' in kicked));
+ for(const cookie of [people[0],people[2],people[3]]){const snapshot=(await read(cookie,key)).data;assert(snapshot.players.every(p=>p.name!=='牌友1'))}
+ await call(people[0],{action:'fill',code:key});for(const cookie of [people[0],people[2],people[3]])await call(cookie,{action:'ready',code:key});const ready=get(key);ready.players.forEach(p=>p.ready=true);put(ready);const again=await call(people[0],{action:'start',code:key});assert.equal(again.round,2);assert.deepEqual(again.players.map(p=>p.score),[20,3,-15,0]);assert.equal(again.history.length,1);
+ const oldStop=await response(people[0],{...body,clientId:crypto.randomUUID()});assert.equal(oldStop.status,409);assert.equal((await read(people[0],key)).data.phase,'play','old round confirmation cannot end the next round');
+}
+{
+ const {people,code:key}=await managedTable();let v=(await read(people[0],key)).data;
+ assert.equal((await response(people[1],{action:'kick',code:key,tile:2,version:v.version,clientId:crypto.randomUUID()})).status,403);
+ for(const tile of [0,-1,4,1.5])assert.equal((await response(people[0],{action:'kick',code:key,tile,version:v.version,clientId:crypto.randomUUID()})).status,400);
+ const parallel=await Promise.all([response(people[0],{action:'kick',code:key,tile:1,version:v.version,clientId:crypto.randomUUID()}),response(people[0],{action:'kick',code:key,tile:2,version:v.version,clientId:crypto.randomUUID()})]);assert.equal(parallel.filter(x=>x.status===200).length,1);assert.equal(parallel.filter(x=>x.status===409).length,1);assert.equal(get(key).players.length,3);
+ const removed=people.find((cookie,i)=>i>0&&!get(key).players.some(p=>p.id===cookie.split('=')[1]));assert(removed);const rejoined=await call(removed,{action:'join',name:'重新入座',code:key});assert.equal(rejoined.players.length,4);assert.equal((await read(removed,key)).data.left,undefined,'explicit rejoining clears the prior removal notice');
+}
+// Termination can use a stale play version within the same round, but a
+// concurrent winning operation and termination may commit only one outcome.
+{
+ const {people,code:key}=await managedTable();const r=get(key);r.players.forEach(p=>p.ready=true);engine.start(r,Date.now());r.turn=1;r.drawn=25;r.drawnIndex=13;r.deadline=Date.now()+60000;r.players[1].hand=[0,1,2,3,4,5,9,10,11,18,18,18,25,25];put(r);
+ const host=(await read(people[0],key)).data,winning=(await read(people[1],key)).data;assert(winning.options.includes('hu'));
+ const result=await Promise.all([response(people[0],{action:'terminate',code:key,round:host.round,version:host.version,clientId:crypto.randomUUID()}),response(people[1],{action:'hu',code:key,version:winning.version,context:winning.actionContext,clientId:crypto.randomUUID()})]);assert.equal(result.filter(x=>x.status===200).length,1);const final=get(key);assert.equal(final.history.length,1);assert.equal(final.phase,'done');assert.equal(final.result.delta.reduce((a,b)=>a+b),0);
+}
+console.log('PASS: v25 actual SQLite host authority, play/claim termination with zero chicken/beans/hu, hidden hands and immutable bills, termination/hu race, kick timing/self/target validation, same-ID and competing kick safety, kicked GET/POST and rejoin, other-seat synchronization and subsequent round preservation.');

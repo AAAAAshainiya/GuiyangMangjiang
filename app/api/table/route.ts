@@ -1,11 +1,13 @@
 import { db } from '@/db';
-import { CHAT_EMOJIS, AVATARS, setRoomRules, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
+import { CHAT_EMOJIS, AVATARS, setRoomRules, terminateRound, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
 export const dynamic='force-dynamic';
 import {interactionKind,validRoomCode as valid,roomCode} from '@/lib/interaction';
 class RequestError extends Error {constructor(message:string,public status=400,public code='ACTION_REJECTED'){super(message)}}
 function session(req:Request){return req.headers.get('cookie')?.match(/(?:^|; )mj_guest=([a-f0-9]{64})(?:;|$)/)?.[1]}
 function reply(data:unknown,status=200,cookie?:string){return Response.json(data,{status,headers:{'Cache-Control':'no-store',...(cookie?{'Set-Cookie':`mj_guest=${cookie}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`}:{})}})}
 function token(){return [...crypto.getRandomValues(new Uint8Array(32))].map(x=>x.toString(16).padStart(2,'0')).join('')}
+type ManagedRoom=Room&{kicked?:{id:string,at:number}[]};
+const kickedOutcome=()=>({left:true,kicked:true,message:'你已被房主移出房间'});
 async function read(code:string){const row=await db().prepare('SELECT state, version, updated FROM mahjong_rooms WHERE code = ?').bind(code).first<{state:string,version:number,updated:number}>();if(!row||Date.now()-row.updated>7*86400000)throw new RequestError('房间不存在或已过期，请核对房间码',404);const r=JSON.parse(row.state) as Room;r.version=row.version;r.playVersion??=row.version;return r}
 async function save(r:Room,gameChanged=true){const v=r.version??0;r.playVersion=(r.playVersion??v)+(gameChanged?1:0);r.version=v+1;const result=await db().prepare('UPDATE mahjong_rooms SET state = ?, version = ?, updated = ? WHERE code = ? AND version = ?').bind(JSON.stringify(r),v+1,Date.now(),r.code,v).run();return result.meta.changes===1}
 async function visible(r:Room,id:string){
@@ -35,7 +37,7 @@ async function sendChat(r:Room,id:string,b:any,now:number){
 }
 const PLAY_ACTIONS=['discard','hu','peng','gang','bu','pass'];
 function receipt(r:Room,id:string,clientId:unknown){return r.actionReceipts?.find(a=>a.player===id&&a.id===clientId)}
-function signature(b:any){const fields=[b.action,b.tile??null,b.version??null,b.context??null,b.name??null];if(b.avatar!==undefined)fields.push(b.avatar);if(b.rules!==undefined)fields.push(b.rules);return JSON.stringify(fields)}
+function signature(b:any){const fields=[b.action,b.tile??null,b.version??null,b.context??null,b.name??null];if(b.avatar!==undefined)fields.push(b.avatar);if(b.rules!==undefined)fields.push(b.rules);if(b.round!==undefined)fields.push(b.round);return JSON.stringify(fields)}
 function acknowledge(r:Room,id:string,clientId:string){return {clientId,status:receipt(r,id,clientId)?'applied':'not_found'}}
 function remember(r:Room,id:string,b:any,left=false){if(!b.clientId)return;r.actionReceipts=[...(r.actionReceipts??[]),{id:b.clientId,player:id,signature:signature(b),at:Date.now(),...(left?{left:true}:{})}].slice(-128)}
 async function outcome(r:Room,id:string,b:any,left=false){return {...(left?{left:true}:await visible(r,id)),...(b.clientId?{actionAck:acknowledge(r,id,b.clientId)}:{})}}
@@ -45,7 +47,7 @@ export async function GET(req:Request){try{
  if(!code)return reply({session:true});if(!valid(code))return reply({error:'邀请码应为 4 位字母或数字，旧房间支持 8 位'},400);
  for(let n=0;n<5;n++){
   const r=await read(code),p=r.players.find(p=>p.id===id);
-  if(!p){if(actionId&&receipt(r,id,actionId)?.left)return reply({left:true,actionAck:acknowledge(r,id,actionId)});return reply({error:'请先输入昵称加入房间'},403)}
+  if(!p){if((r as ManagedRoom).kicked?.some(p=>p.id===id))return reply(kickedOutcome());if(actionId&&receipt(r,id,actionId)?.left)return reply({left:true,actionAck:acknowledge(r,id,actionId)});return reply({error:'请先输入昵称加入房间'},403)}
   const gameChanged=advance(r,Date.now()),historyChanged=r.phase==='done'&&!!r.result&&!r.history?.some(h=>h.round===r.round);if(historyChanged)archiveRound(r,Date.now());let changed=gameChanged||historyChanged;
   if(Date.now()-p.seen>10000){p.seen=Date.now();changed=true}
   if(!changed||await save(r,gameChanged))return reply({...await visible(r,id),...(actionId?{actionAck:acknowledge(r,id,actionId)}:{})});
@@ -70,7 +72,8 @@ export async function POST(req:Request){try{
  if(b.clientId!==undefined&&(typeof b.clientId!=='string'||!/^[a-f0-9-]{36}$/.test(b.clientId)))throw new RequestError('操作编号不正确');
  if(b.context!==undefined&&(typeof b.context!=='string'||b.context.length>2048))throw new RequestError('操作状态不正确');
  for(let tries=0;tries<5;tries++){
-  const r=await read(code),previous=receipt(r,id,b.clientId);let i=r.players.findIndex(p=>p.id===id);
+  const r=await read(code) as ManagedRoom,previous=receipt(r,id,b.clientId);let i=r.players.findIndex(p=>p.id===id);
+  if(i<0&&b.action!=='join'&&r.kicked?.some(p=>p.id===id))return reply(kickedOutcome());
   if(previous){if(previous.signature!==signature(b))throw new RequestError('操作编号已经使用',409,'ACTION_ID_CONFLICT');return reply(await outcome(r,id,b,previous.left))}
   if(b.action==='join'){
    if(i>=0)return reply(await visible(r,id));
@@ -78,20 +81,33 @@ export async function POST(req:Request){try{
    const name=String(b.name??'').trim().slice(0,12);if(!name)throw new RequestError('先给自己起个昵称');
    const at=r.players.findIndex(p=>p.bot);if(at>=0){const score=r.players[at].score;r.players[at]=player(id,name);r.players[at].score=score}else if(r.players.length<4)r.players.push(player(id,name));else throw new RequestError('四个座位都有人了');
    r.players.find(p=>p.id===id)!.avatar=AVATARS.includes(b.avatar)?b.avatar:AVATARS[0];
+   r.kicked=r.kicked?.filter(p=>p.id!==id);
    if(!r.host||!r.players.some(p=>p.id===r.host&&!p.bot))r.host=id;log(r,`${name}入座了`);remember(r,id,b);
    if(await save(r))return reply(await outcome(r,id,b));continue;
   }
   if(i<0)throw new RequestError('请先加入房间',403);
   if(b.action==='rules'&&r.host!==id)throw new RequestError('只有房主可以修改计分规则',403);
+  if(['kick','terminate'].includes(b.action)&&r.host!==id)throw new RequestError('只有房主可以管理牌局和座位',403);
   // Claim responses from different seats share a stable action context, while
   // every persisted change still uses the SQL compare-and-swap revision.
   const isPlay=PLAY_ACTIONS.includes(b.action);
-  const stale=isPlay?(b.context!==undefined?b.context!==actionContext(r,i):b.version!==r.playVersion):(b.action!=='resume'&&b.clientId&&b.version!==r.playVersion);
+  const stale=isPlay?(b.context!==undefined?b.context!==actionContext(r,i):b.version!==r.playVersion):b.action==='terminate'?b.round!==r.round:(b.action==='kick'?b.version!==r.playVersion:b.action!=='resume'&&b.clientId&&b.version!==r.playVersion);
   if(stale)return reply({error:'牌桌已更新，已为你同步最新操作',code:'STATE_CHANGED',state:await visible(r,id)},409);
   r.players[i].seen=now;
   let left=false;
   try{
    if(b.action==='rules'){setRoomRules(r,i,b.rules)}
+   else if(b.action==='terminate'){terminateRound(r,i,now)}
+   else if(b.action==='kick'){
+    if(!['lobby','done'].includes(r.phase))throw new Error('对局中不能踢人，请等待本局结束');
+    if(!Number.isInteger(b.tile)||b.tile<0||b.tile>=r.players.length||b.tile===i)throw new Error('请选择其他座位，房主不能踢自己');
+    if(r.phase==='done')archiveRound(r,now);
+    const target=r.players[b.tile];if(!target.bot)r.kicked=[...(r.kicked??[]).filter(p=>p.id!==target.id),{id:target.id,at:now}].slice(-64);
+    r.players.splice(b.tile,1);if(b.tile<r.dealer)r.dealer--;r.dealer=Math.max(0,Math.min(r.dealer,r.players.length-1));
+    r.phase='lobby';r.result=null;r.claim=null;r.deadline=0;r.drawn=null;r.drawnIndex=null;r.canKong=false;r.afterKong=false;r.turn=r.dealer;r.wall=[];r.lastDiscard=null;r.charges=[];r.tableEvents=[];
+    r.players.forEach(p=>{p.hand=[];p.melds=[];p.river=[]});
+    log(r,`${r.players.find(p=>p.id===id)!.name}将${target.name}移出了房间`);
+   }
    else if(b.action==='resume'){if(!['play','claim'].includes(r.phase))throw new Error('当前无需恢复手动操作');r.players[i].managed=false;if(r.phase==='play'&&r.turn===i)r.deadline=now+45000;log(r,`${r.players[i].name}已恢复手动操作`)}
    else if(b.action==='speed'){if(r.host!==id)throw new Error('只有房主可以设置快速模式');if(!['lobby','done'].includes(r.phase))throw new Error('下一局开始前可以调整模式');if(![0,1].includes(b.tile))throw new Error('模式设置不正确');r.fast=b.tile===1;log(r,r.fast?'快速模式已开启：人机等待半秒':'快速模式已关闭：人机等待两秒')}
    else if(b.action==='profile'){if(!['lobby','done'].includes(r.phase))throw new Error('本局结束后可以修改资料');const name=String(b.name??'').trim().slice(0,12);if(!name||!AVATARS.includes(b.avatar))throw new Error('请选择昵称和头像');r.players[i].name=name;r.players[i].avatar=b.avatar}

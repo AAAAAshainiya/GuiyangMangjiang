@@ -67,3 +67,11 @@ for(let run=0;run<3;run++){
  const scores=t.room.players.map(p=>p.score);button(next(t.snapshot(),false,a=>t.human(a))).props.onClick();assert.equal(t.room.round,2);assert.deepEqual(t.room.players.map(p=>p.score),scores);
 }
 console.log(`PASS: real end-game component rendering and restore for ${soloGames} normal/fast solo games; ${onlineGames} multiplayer games with 1/2/4 humans; 3 tutorial games with all four lesson gates; actual next-round callbacks preserve scores and history.`);
+{
+ const r=game.create('STOP','p0','房主');r.players=Array.from({length:4},(_,i)=>({...game.player('p'+i,'牌友'+i),ready:true}));game.start(r,1000);game.terminateRound(r,0,1500);
+ for(let i=0;i<4;i++){
+  const room=game.view(r,'p'+i);settlement(room);const html=renderToStaticMarkup(React.createElement(social.RoundEnd,{room,Tile,stage:'summary',nextRound:React.createElement(progress.NextRound,{room,busy:false,onAction:()=>{}})}));
+  assert.match(html,/房主已终止本局/);assert.match(html,/房主终止 · 0 分/);assert.match(html,/保留此前累计积分/);assert.doesNotMatch(html,/牌墙已摸完/);assert.equal(room.history[0].bill.result.terminated,true);
+ }
+}
+console.log('PASS: real terminated-room settlement and historical bills render for all four players, show host cancellation and zero net, and keep next-round controls.');
