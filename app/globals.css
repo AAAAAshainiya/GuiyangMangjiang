@@ -237,7 +237,7 @@ button.avatar:disabled{opacity:1;cursor:default}
 .ready-summary-list p .settlement-tile{vertical-align:middle;margin:0 5px}
 .waiting-tile-list{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .waiting-tile{display:flex;align-items:center;flex-direction:column;gap:4px;font-size:14px}
-.waiting-tile small{font-size:12px;color:#647b58;white-space:nowrap}.ready-qualification{color:#6c7e5d}
+.waiting-tile small{font-size:12px;color:#647b58;white-space:nowrap}.ready-qualification{color:#6c7e5d}.history-dialog .showdown-player label{font-size:14px}.history-dialog .showdown-player>small{font-size:13px}
 .bill-table-scroll{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}
 .bill-table-scroll table{min-width:340px}.bill-table-scroll td:not(:first-child),.bill-table-scroll th:not(:first-child){white-space:nowrap}
 .tile .tile-face{object-fit:contain}
