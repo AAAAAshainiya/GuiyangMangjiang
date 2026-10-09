@@ -7,6 +7,8 @@ import * as jsx from 'react/jsx-runtime';
 import * as icons from 'lucide-react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import * as game from '../lib/game.ts';
+import {loadLocalLibrary} from './modules-v13.mjs';
+const tableEvents=await loadLocalLibrary('lib/table-events.ts');
 import * as interaction from '../lib/interaction.ts';
 import * as client from '../lib/table-client.ts';
 const {create,player,act,view,waits,start}=game;
@@ -15,7 +17,7 @@ function table(){const r=create('ABCD','0','玩家0');r.players=[0,1,2,3].map(i=
 function win(r){r.turn=0;r.phase='play';r.drawn=25;act(r,0,'hu',undefined,2000);return r}
 function assertLedgers(r){for(let i=0;i<4;i++){assert.equal(r.result.chickenAudit[i].reduce((n,d)=>n+d.actual,0),r.result.values[i]);const net=r.result.beanAudit.reduce((n,e)=>n+(e.status!=='counted'?0:e.seat===i?e.unit*e.payers.length:e.payers.includes(i)?-e.unit:0),0);assert.equal(net,r.result.beans[i]);}assert.equal(r.result.delta.reduce((a,b)=>a+b),0)}
 function mod(object){return new vm.SyntheticModule(Object.keys(object),function(){for(const k of Object.keys(object))this.setExport(k,object[k])})}
-const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game),'@/lib/interaction':mod(interaction),'@/lib/table-client':mod(client)};
+const imports={'react':mod(React),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/table-events':mod(tableEvents),'@/lib/game':mod(game),'@/lib/interaction':mod(interaction),'@/lib/table-client':mod(client)};
 const source=ts.transpileModule(fs.readFileSync('app/game-social.tsx','utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const module=new vm.SourceTextModule(source);await module.link(s=>imports[s]);await module.evaluate();const {SettlementDetails,ScoreOverview,RoundEnd}=module.namespace;
 const render=(r,id='0')=>renderToStaticMarkup(React.createElement(SettlementDetails,{room:view(r,id),defaultOpen:true}));

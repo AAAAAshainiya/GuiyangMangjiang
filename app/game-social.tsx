@@ -4,6 +4,7 @@ import {MessageCircle,Send,X,ChevronRight} from 'lucide-react';
 import {CHAT_EMOJIS,tileName} from '@/lib/game';
 import {INTERACTIONS,type InteractionKind} from '@/lib/interaction';
 import {tableRequest} from '@/lib/table-client';
+import {winnerText,type EndStage} from '@/lib/table-events';
 type Message={id:string,seat:number,name:string,kind:string,content:string,at:number,mine:boolean};
 export function ChatBubble({messages,seat,now,enabled}:{messages:Message[],seat:number,now:number,enabled:boolean}){
  const message=enabled?[...messages].reverse().find(m=>m.seat===seat&&now-m.at<4000&&now>=m.at-1000):null;
@@ -99,11 +100,11 @@ export function SettlementDetails({room,defaultOpen=false}:{room:any,defaultOpen
  <p className="net-equation">实际盈亏：胡 {signed(r.hu?.[me]??0)} ＋ 豆 {signed(r.beans?.[me]??0)} ＋ 鸡 {signed(r.chicken?.[me]??0)} ＝ <b>{signed(r.delta[me])}</b></p>
  </div></details>;
 }
-export function RoundEnd({room,Tile,nextRound}:{room:any,Tile:any,nextRound?:any}){
- const [stage,setStage]=useState<'flip'|'summary'|'closed'>(room.result.flip!==null?'flip':'summary');
- useEffect(()=>{setStage(room.result.flip!==null?'flip':'summary');if(room.result.flip!==null){const timer=setTimeout(()=>setStage('summary'),2600);return()=>clearTimeout(timer)}},[room.code,room.round]);
- if(stage==='closed')return <button className="reopen-summary" onClick={()=>setStage('summary')}>查看本局结算</button>;
- return <div className="round-end" role="region" aria-label={stage==='flip'?'本局翻鸡':'本局积分结算'}>
- {stage==='flip'?<div className="flip-animation" role="status"><span className="end-kicker">本局翻鸡</span><div className="flip-scene"><div className="flip-card"><div className="flip-back"><Tile t={0} back/></div><div className="flip-face"><Tile t={room.result.flip}/></div></div><ChevronRight size={24}/><div className="rooster-card"><Tile t={room.result.rooster}/></div></div><p>翻出 {tileName(room.result.flip)} · {tileName(room.result.rooster)}为本局鸡</p></div>:<div className="central-summary"><div className="central-summary-heading"><div><span className="end-kicker">本局积分结算</span><h2>{room.result.winner<0?'流局 · 不加分、不扣分':room.players[room.result.winner].name+'胡了'}</h2></div><button onClick={()=>setStage('closed')} aria-label="收起结算总览"><X size={20}/></button></div><p className="end-pattern">{room.result.pattern} {room.result.kind}</p>{nextRound}<ScoreOverview room={room}/><SettlementDetails room={room} defaultOpen/>{room.result.flip!==null&&<p className="summary-chicken">翻 {tileName(room.result.flip)} · 本局鸡 {tileName(room.result.rooster)}</p>}<button className="summary-dismiss" onClick={()=>setStage('closed')}>收起总览，查看牌面</button></div>}
+export function RoundEnd({room,Tile,nextRound,stage='summary'}:{room:any,Tile:any,nextRound?:any,stage?:EndStage}){
+ const [closed,setClosed]=useState(false);
+ const win=room.result.winner>=0?winnerText(room):null;
+ if(closed)return <button className="reopen-summary" onClick={()=>setClosed(false)}>查看本局结算</button>;
+ return <div className="round-end" role="region" aria-label={stage==='winner'?'本局胡牌提示':stage==='flip'?'本局翻鸡':'本局积分结算'}>
+ {stage==='winner'?<div className="winner-announcement" role="status"><span className="end-kicker">本局胡牌</span><h2>{win?.title}</h2><p>{win?.detail}</p><strong>{win?.pattern}</strong><small>{room.result.flip!==null?'接下来翻鸡':'接下来结算'}</small></div>:stage==='flip'?<div className="flip-animation" role="status"><span className="end-kicker">本局翻鸡</span><div className="flip-scene"><div className="flip-card"><div className="flip-back"><Tile t={0} back/></div><div className="flip-face"><Tile t={room.result.flip}/></div></div><ChevronRight size={24}/><div className="rooster-card"><Tile t={room.result.rooster}/></div></div><p>翻出 {tileName(room.result.flip)} · {tileName(room.result.rooster)}为本局鸡</p></div>:<div className="central-summary"><div className="central-summary-heading"><div><span className="end-kicker">本局积分结算</span><h2>{room.result.winner<0?'流局 · 不加分、不扣分':room.players[room.result.winner].name+'胡了'}</h2></div><button onClick={()=>setClosed(true)} aria-label="收起结算总览"><X size={20}/></button></div><p className="end-pattern">{room.result.pattern} {room.result.kind}</p>{nextRound}<ScoreOverview room={room}/><SettlementDetails room={room} defaultOpen/>{room.result.flip!==null&&<p className="summary-chicken">翻 {tileName(room.result.flip)} · 本局鸡 {tileName(room.result.rooster)}</p>}<button className="summary-dismiss" onClick={()=>setClosed(true)}>收起总览，查看牌面</button></div>}
  </div>;
 }

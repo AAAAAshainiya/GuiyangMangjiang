@@ -3,10 +3,10 @@ import {create,player,start,act,view,tick} from '../lib/game.ts';
 import {GameSoundTracker,MahjongAudio} from '../lib/game-sound.ts';
 function table(){const r=create('ABCDEFGH','0','我');r.players=[0,1,2,3].map(i=>player(String(i),'玩家'+i));r.phase='play';r.turn=0;r.drawn=25;r.wall=[8];return r}
 let r=table();r.players[0].hand=[1,2,3,4,5,6,10,11,12,21,21,21,25,25];act(r,0,'hu',undefined,1000);
-assert.deepEqual(r.soundEvents.map(e=>[e.kind,e.delayMs]),[['zimo',0],['flip',500],['settle',2600]]);
+assert.deepEqual(r.soundEvents.map(e=>[e.kind,e.delayMs]),[['zimo',0],['flip',2100],['settle',4200]]);
 assert(view(r,'1').soundEvents.every(e=>Object.keys(e).every(k=>['seq','kind','seat','at','delayMs'].includes(k))),'sound payload never exposes tiles');
 r=table();r.wall=[];r.players[0].hand=[0,0,0,3,3,3,9,9,9,18,18,18,22];r.turn=1;r.players[1].hand=[22];act(r,1,'discard',22,1000);act(r,0,'hu',undefined,1100);
-assert.deepEqual(r.soundEvents.map(e=>e.kind),['discard','hu','settle']);assert.equal(r.soundEvents.at(-1).delayMs,550);
+assert.deepEqual(r.soundEvents.map(e=>e.kind),['discard','hu','settle']);assert.equal(r.soundEvents.at(-1).delayMs,1600);
 r=table();r.players[0].hand=[0];r.players[1].hand=[0,0,2];act(r,0,'discard',0,1000);act(r,1,'peng',undefined,1100);assert.deepEqual(r.soundEvents.map(e=>e.kind),['discard','peng','turn']);
 r=table();r.canKong=true;r.players[0].hand=[4,4,4,4,1,2,3,10,11,12,21,22,23,25];act(r,0,'gang',4,1000);assert.deepEqual(r.soundEvents.map(e=>e.kind),['gang','draw','turn']);assert.equal(view(r,'1').players[0].melds[0].t,-1);
 // A robbed attempt does not play a completed-kong sound.
