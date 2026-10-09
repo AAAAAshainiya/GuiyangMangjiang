@@ -13,7 +13,7 @@ export const CHAT_EMOJIS=['😂','👍','😭','😎','🤔','👏'];
 export const tileName=(t:number)=>`${t%9+1}${['万','筒','条'][Math.floor(t/9)]}`;
 export const isChicken=(t:number)=>t===0||t===18||t===16;
 export const chickenPoints=(t:number)=>isChicken(t)?2:0;
-export const botDelay=(r:Room)=>r.fast?0:2000;
+export const botDelay=(r:Room)=>r.fast?500:2000;
 export function log(r:Room,s:string){r.logs=[s,...r.logs].slice(0,30)}
 function sound(r:Room,kind:SoundEvent['kind'],seat:number,now:number,delayMs=0){const seq=(r.soundSeq??0)+1;r.soundSeq=seq;r.soundEvents=[...(r.soundEvents??[]),{seq,kind,seat,at:now,delayMs}].slice(-40)}
 function tableEvent(r:Room,seat:number,kind:TableEvent['kind'],from:number|null,tile:number|null,now:number){const seq=r.tableSeq=(r.tableSeq??0)+1;r.tableEvents=[...(r.tableEvents??[]),{seq,seat,kind,from,tile:kind==='an'?null:tile,at:now}].slice(-40)}
@@ -41,8 +41,9 @@ export function options(r:Room,i:number){const p=r.players[i];if(!p)return [];
 export function player(id:string,name:string,bot=false):Player{return{id,name,bot,ready:bot,seen:Date.now(),hand:[],melds:[],river:[],score:0}}
 export function create(code:string,id:string,name:string):Room{return{code,host:id,players:[player(id,name)],phase:'lobby',wall:[],turn:0,dealer:0,round:0,deadline:0,claim:null,drawn:null,canKong:false,afterKong:false,logs:['牌桌已开好，等朋友入座。'],result:null,beans:[0,0,0,0],beanValues:[0,0,0,0],beanTransfers:[],beanRequiresReady:true,beanEvents:[],beanEventsComplete:true,claimedTiles:[],soundEvents:[],soundSeq:0,scoringVersion:3,singleOnly:true,fast:false,completedRounds:0,history:[],roundSummaries:[],lastDiscard:null,heavenlyReady:[],charges:[]}}
 function deadline(r:Room,now:number){r.deadline=now+((r.players[r.turn]?.bot||r.players[r.turn]?.managed)?botDelay(r):45000)}
-export function start(r:Room,now:number){if(r.players.length!==4||r.players.some(p=>!p.ready))throw new Error('需要四个座位全部准备，空位可以用电脑补齐');if(r.phase==='done'&&r.result)archiveRound(r,now);r.round++;r.phase='play';r.wall=Array.from({length:108},(_,i)=>Math.floor(i/4));
+export function start(r:Room,now:number){if(r.players.length!==4||r.players.some(p=>!p.ready))throw new Error('需要四个座位全部准备，空位可以用电脑补齐');if(r.phase==='done'&&r.result)archiveRound(r,now);const firstRound=r.round===0;r.round++;r.phase='play';r.wall=Array.from({length:108},(_,i)=>Math.floor(i/4));
  for(let i=107;i>0;i--){const a=new Uint32Array(1);crypto.getRandomValues(a);const j=a[0]%(i+1);[r.wall[i],r.wall[j]]=[r.wall[j],r.wall[i]]}
+ if(firstRound){const seat=new Uint32Array(1);crypto.getRandomValues(seat);r.dealer=seat[0]%4}
  r.players.forEach(p=>{p.managed=false;p.hand=sort(r.wall.splice(0,13));p.melds=[];p.river=[]});r.turn=r.dealer;r.beans=[0,0,0,0];r.beanValues=[0,0,0,0];r.beanTransfers=[];r.beanRequiresReady=true;r.beanEvents=[];r.beanEventsComplete=true;r.claimedTiles=[];r.scoringVersion=3;r.singleOnly=true;r.lastDiscard=null;r.heavenlyReady=r.players.map(p=>waits(p).length>0);r.charges=[];r.claim=null;r.result=null;r.afterKong=false;draw(r,r.turn,now);log(r,`第 ${r.round} 局开始，${r.players[r.dealer].name}坐庄`)}
 function draw(r:Room,i:number,now:number,kong=false){if(!r.wall.length){finish(r,-1,-1,'流局',now);return}r.turn=i;r.phase='play';const t=r.wall.pop()!;r.players[i].hand.push(t);sort(r.players[i].hand);r.drawn=t;r.drawnIndex=r.players[i].hand.lastIndexOf(t);r.canKong=true;r.afterKong=kong;deadline(r,now);sound(r,'draw',i,now);sound(r,'turn',i,now,120)}
 function transfer(a:number[],from:number,to:number,n:number){a[from]-=n;a[to]+=n}
@@ -136,8 +137,8 @@ function autoTurn(r:Room,i:number){const p=r.players[i];if(!p.bot){if(!p.managed
 export function tick(r:Room,now:number){let changed=false;if(r.phase==='claim'){const q=r.claim!;for(const k of Object.keys(q.choices)){if(q.answers[k])continue;const i=Number(k);if(r.players[i].bot||r.players[i].managed||now>=r.deadline){const automated=r.players[i].bot||r.players[i].managed;autoTurn(r,i);q.answers[k]=automated?q.choices[k][0]:'pass';changed=true}}
  if(Object.keys(q.choices).every(k=>q.answers[k])){resolve(r,now);changed=true}
  }else if(r.phase==='play'&&now>=r.deadline){const i=r.turn;autoTurn(r,i);const opts=options(r,i);if(opts.includes('hu'))act(r,i,'hu',undefined,now);else{const k=opts.find(x=>x.startsWith('gang:')||x.startsWith('bu:'));if(k){const [a,t]=k.split(':');act(r,i,a,Number(t),now)}else act(r,i,'discard',suggest(r.players[i]),now)}changed=true}return changed}
-// Fast bots advance in this same atomic room transition, stopping whenever an
-// un-managed human needs to choose. Human deadlines remain unchanged.
+// Advance due actions atomically, respecting each bot's 500 ms or 2 s deadline
+// and preserving every un-managed human choice and response deadline.
 export function advance(r:Room,now:number){let changed=false;for(let n=0;n<(r.fast?250:1);n++){if(!tick(r,now))break;changed=true;if(r.phase==='done')break}return changed}
 export function archiveRound(r:Room,at:number){if(!r.result||r.phase!=='done')return;
  r.completedRounds=Math.max(r.completedRounds??0,r.round);

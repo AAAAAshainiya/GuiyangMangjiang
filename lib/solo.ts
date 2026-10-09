@@ -17,7 +17,7 @@ export class SoloGame{
   if(action==='pause'){this.pause(now);return}if(action==='continue'){this.resume(now);return}
   if(this.pausedAt!==null)throw new Error('牌局已暂停，继续后再操作');
   if(action==='ready'||action==='start'){if(this.room.phase!=='done')throw new Error('本局尚未结束');this.room.players[0].ready=true;start(this.room,now)}
-  else if(action==='speed'){if(!['play','done','lobby'].includes(this.room.phase)||tile!==0&&tile!==1)throw new Error('当前不能切换节奏');this.room.fast=tile===1;if(this.room.phase==='play'&&this.room.players[this.room.turn].bot)this.room.deadline=now+(this.room.fast?0:2000)}
+  else if(action==='speed'){if(!['play','done','lobby'].includes(this.room.phase)||tile!==0&&tile!==1)throw new Error('当前不能切换节奏');this.room.fast=tile===1;if(this.room.phase==='play'&&this.room.players[this.room.turn].bot)this.room.deadline=now+(this.room.fast?500:2000)}
   else if(action==='resume'){this.room.players[0].managed=false;if(this.room.phase==='play'&&this.room.turn===0)this.room.deadline=now+45000}
   else act(this.room,0,action,tile,now);
   advance(this.room,now);this.bump();
