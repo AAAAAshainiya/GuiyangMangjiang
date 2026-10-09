@@ -68,3 +68,7 @@ assert.equal(nodes(render()).find(n=>n.props?.selected&&n.props?.t!==undefined).
 slots[0]={...slots[0],players:slots[0].players.map((p,i)=>i===0?{...p,hand:p.hand.filter(t=>t!==6)}:p)};assert(!nodes(render()).some(n=>n.props?.selected&&n.props?.t!==undefined));
 assert.equal((renderToStaticMarkup(render()).match(/Created by Ashaini白告然/g)||[]).length,2);
 console.log('PASS: actual Home preselection while another seat plays, no discard control before your turn, same tile after draw sorting, absent tile cleared and both exact author credits.');
+
+// v28 credit belongs to the hand rail, and face-up an stays named an.
+let actualTree=render(),handArea=nodes(actualTree).find(n=>n.props?.className==='hand-area');assert.equal(nodes(handArea).filter(n=>n.props?.className==='table-signature').length,1);
+slots[0]={...played,players:played.players.map((p,i)=>i===2?{...p,hand:[],melds:[{t:1,k:'gang',hidden:true,faceUp:true,kong:'an'}]}:p)};html=renderToStaticMarkup(render());assert.match(html,/aria-label="暗杠 2万"/);assert(!html.includes('title="牌背"'));assert.match(html,/tiles\/1.webp/);console.log('PASS: v28 actual hand-area credit and public four-face an with unchanged an label.');

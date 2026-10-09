@@ -461,3 +461,7 @@ footer{display:flex;flex-direction:column;align-items:center;text-align:center}
 .lesson-settlement-step-0 .hu-breakdown,.lesson-settlement-step-0 .hu-transfer-list,.lesson-settlement-step-1 .bean-event-list,.lesson-settlement-step-2 .chicken-detail-list,.lesson-settlement-step-3 .settlement-headline,.lesson-settlement-step-3 .deduction-summary{outline:2px solid #b89a48;outline-offset:2px;border-radius:5px}
 @media(max-width:900px),(max-width:1024px) and (max-height:600px){.coach-rail{max-height:140px;padding:8px;gap:8px}.coach-controls{max-width:112px}.table-signature{padding-right:6px}.tutorial-inline{max-height:150px}}
 @media(max-width:1024px) and (max-height:500px){.coach-rail{max-height:100px}.tutorial-inline{max-height:100px}}
+
+/* The table credit is part of the hand area, below the cards and controls. */
+.hand-area>.table-signature{margin-top:4px;padding:2px 4px 0;min-height:19px;color:#718062;text-align:right;line-height:17px}
+.check-ready-section p,.responsibility-section p{overflow-wrap:anywhere}

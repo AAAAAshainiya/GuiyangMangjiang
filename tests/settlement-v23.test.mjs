@@ -40,6 +40,7 @@ let soloGames=0,onlineGames=0;
 for(const fast of [false,true])for(let run=0;run<4;run++){
  const s=new solo.SoloGame('我','🐼',1000,fast);let now=1000;
  for(let n=0;n<1000&&s.room.phase!=='done';n++){
+  if(s.pausedAt!==null){s.resume(now);continue}
   const opts=game.options(s.room,0),k=opts.find(x=>x.startsWith('gang:')||x.startsWith('bu:'));
   if(opts.length){now++;if(opts.includes('hu'))s.human('hu',undefined,now);else if(s.room.phase==='claim')s.human(opts[0],undefined,now);else if(k){const [a,t]=k.split(':');s.human(a,Number(t),now)}else s.human('discard',game.suggest(s.room.players[0]),now)}
   else{now=Math.max(now+1,s.room.deadline);s.tick(now)}

@@ -27,18 +27,20 @@ export function RuleTables({rules=defaultRules()}:{rules?:GameRules}){
  ['冲锋鸡',`每张收 ${charge} 分`,`自己打出的每张赔 ${charge} 分`,'只有仍在本人弃牌区的冲锋鸡算本人分数。'],
  ['只算翻鸡，未与固定鸡重合',`每张收 ${flip} 分`,'自己打出的也不收、不扣，0分；持有同样不计分',`例如翻出1万，2万是翻鸡；仅当2万未被选为固定鸡时，未听牌打出它为0分。`],
  ['翻鸡＋普通固定鸡',`每张收 ${base}＋${flip}＝${base+flip} 分`,`自己打出的每张赔 ${base+flip} 分`,`${base} 固定鸡＋${flip} 翻鸡，重合仍多计翻鸡部分。`],
+ ['责任鸡：冲锋鸡被碰／明杠',`碰／杠者听牌或胡牌：原出牌者额外付 ${r.responsibility} 分`,`碰／杠者未听牌：倒付原出牌者 ${r.responsibility} 分`,'只在实际完成碰／明杠后产生；流局取消，原出牌者热炮仍须付。此项与普通鸡分分开。'],
  ['翻鸡＋冲锋鸡',`每张收 ${charge}＋${flip}＝${charge+flip} 分`,`自己打出的每张赔 ${charge+flip} 分`,`${charge} 冲锋鸡＋${flip} 翻鸡，不再加普通固定鸡分。`]
  ]}/>
- <p className="rule-note">收鸡资格＝本局结束时胡牌／听牌，且没有放热炮。双方有资格时互相抵扣；双方没资格时互不收弃鸡罚分。碰按3张、杠按4张计算，暗杠也算本人持有鸡，但牌面只向本人显示。</p>
+ <p className="rule-note">收鸡资格＝本局结束时胡牌／听牌，且没有放热炮。双方有资格时互相抵扣；双方没资格时互不收弃鸡罚分。碰按3张、杠按4张计算，暗杠也算本人持有鸡；完成暗杠后四张牌翻正面展示，仍按暗杠计豆。</p>
  <RuleTable title="③ 胡牌牌型与牌面例子" columns={['牌型','本项分数','完整牌面示例','成立条件／叠加']} rows={HU_EXAMPLES.map(e=>[e.name,`${hu[e.key]} 分`,<div className="rule-example" key={e.key}>{e.groups.map((g,i)=><span className="rule-example-group" key={i}><span>{g.tiles.map((t,j)=><img key={j} src={`/tiles/${t}.webp`} alt={tileName(t)} draggable={false}/>)}</span>{g.label&&<small>{g.label}</small>}</span>)}</div>,e.note])}/>
  <p className="rule-note">这些是牌型示例，不是当前玩家的手牌。特殊牌型相加：清一色大对子 {hu.pure}＋{hu.peng}＝{hu.pure+hu.peng}；清一色单吊 {hu.pure}＋{hu.single}＝{hu.pure+hu.single}。平胡只在没有特殊牌型时计算；龙七对替代七对；单吊替代大对子。</p>
  <RuleTable title="④ 自摸、接炮、放炮：实际付多少" columns={['情况','谁付款','每家支付','胡分合计／例子']} rows={[
  ['自摸（含杠开）','另外三家各给赢家','各付牌型总分',`例如大对子：三家各付 ${peng}，赢家共收 ${peng*3} 分。`],
  ['接炮／普通放炮','仅放炮者给赢家','放炮者付牌型总分；其他两家0',`大对子放炮付 ${peng} 分。未听牌放炮仍付胡分。平胡无杠通常不能接炮。`],
  ['抢杠胡','仅被抢补杠者给赢家','付牌型总分，其他两家0','允许无杠平胡；被抢的补杠未完成，不计该次豆分。'],
+ ['流局查叫','每位未听牌者给每位听牌者','按听牌者可胡的最高牌型总分',`例如听牌者最高是清一色大对子 ${hu.pure}＋${hu.peng}＝${hu.pure+hu.peng}，每位未听牌者各付 ${hu.pure+hu.peng} 分。无杠平胡也属于听牌；不虚加杠开。鸡、豆和责任鸡为0。`],
  ['热炮','杠后补牌的第一张弃牌被胡，由放炮者付款',`牌型总分＋额外 ${r.hot} 分`,`大对子热炮付 ${peng}＋${r.hot}＝${peng+r.hot} 分；自己的鸡豆全部烧掉，仍付对方有效鸡豆。`]
  ]}/>
- <p className="rule-note">以上只列胡分付款，鸡豆另算。赢家自己的“胡”列为牌型总分，不是从三家收到的总额；最终赚亏＝实际胡净额＋豆净额＋鸡净额，四人合计为0。</p>
+ <p className="rule-note">可自摸时可以选择“不胡，继续出牌”，不强制胡牌。以上列胡分与流局查叫，非流局的鸡豆和责任鸡另算。赢家自己的“胡”列为牌型总分，不是从三家收到的总额；最终赚亏＝实际胡净额＋豆净额＋鸡净额＋查叫净额＋责任鸡净额，四人合计为0。</p>
  <RuleTable title="⑤ 碰、明杠、暗杠、补杠：豆分" columns={['操作','谁付款','每家支付','杠者实际收入／自身豆值']} rows={[
  ['碰','无人','0 分','不产生豆分。'],
  ['明杠（用他人弃牌）','仅原出牌者',`${r.ming} 分`,`合计收 ${r.ming} 分；自身豆 ${r.ming}。`],
@@ -50,9 +52,9 @@ export function RuleTables({rules=defaultRules()}:{rules?:GameRules}){
  ['未听牌，只打出非固定翻鸡','这张翻鸡0分','仍付他人的有效鸡豆和本人的放炮胡分。'],
  ['未听牌，鸡留在手牌／碰杠里','本人的持有鸡0分；本人的豆取消','自己的固定弃鸡仍赔有资格者；仍付他人的有效鸡豆。'],
  ['自己未听牌开杠','自己的所有豆收付取消','仍付其他有资格杠者的豆。'],
- ['放热炮','自己的手牌、碰杠、弃牌鸡与全部豆烧掉，不收也不倒付','仍付赢家胡分＋热炮额外分，以及其他有资格者的有效鸡豆。'],
+ ['放热炮','自己的手牌、碰杠、弃牌鸡与全部豆烧掉，不收也不倒付','仍付赢家胡分＋热炮额外分，以及其他有资格者的有效鸡豆；原出牌者的责任鸡付款不因热炮取消。'],
  ['补杠被抢胡','该次补杠豆0分','被抢者仍付抢杠赢家牌型胡分。'],
- ['流局','全桌胡、鸡、豆都归0，不翻鸡','本局无人加分或扣分，累计分不变。']
+ ['流局','鸡、豆与责任鸡归0，不翻鸡','未听牌者向每位听牌者支付其最高牌型分。全桌都听牌或都未听牌时查叫为0。']
  ]}/>
  </div>;
 }
@@ -64,7 +66,7 @@ export function RuleEditor({rules,onSave,onCancel,busy=false}:{rules:GameRules,o
  return <div className="rule-editor"><p className="rule-note">修改的是下一局规则。当前牌局和历史账单不会重新计分。所有分数可设为0，范围0—1000，必须是整数。</p>
  <fieldset disabled={locked}><legend>固定鸡牌 · 点击牌面选中或取消</legend><p>默认一万、一条为幺鸡，八筒为乌骨鸡。也可以选择其他牌作为固定鸡，或取消全部；未选中的牌不产生固定鸡和冲锋鸡。</p>{['万','筒','条'].map((suit,s)=><div className="rule-tile-picker" key={suit}><strong>{suit}</strong>{Array.from({length:9},(_,n)=>s*9+n).map(t=><button type="button" key={t} aria-label={tileName(t)+'固定鸡'} aria-pressed={draft.chickenTiles.includes(t)} onClick={()=>setDraft(r=>({...r,chickenTiles:r.chickenTiles.includes(t)?r.chickenTiles.filter(v=>v!==t):[...r.chickenTiles,t].sort((a,b)=>a-b)}))}><RuleTile t={t}/><span>{draft.chickenTiles.includes(t)?'已选':'未选'}</span></button>)}</div>)}</fieldset>
  <div className="rule-table-scroll"><table className="rule-reference-table rule-edit-table"><caption>各项计分数值</caption><thead><tr><th>项目</th><th>每张／每家分数</th></tr></thead><tbody>{HU_FIELDS.map(([key,label])=><tr key={key}><th scope="row">{label}</th><td><input type="number" inputMode="numeric" min={0} max={1000} step={1} disabled={locked} aria-label={label+'分数'} value={Number.isNaN(draft.hu[key])?'':draft.hu[key]} onChange={e=>number(key,e.target.value,true)}/></td></tr>)}{POINT_FIELDS.map(([key,label])=><tr key={key}><th scope="row">{label}</th><td><input type="number" inputMode="numeric" min={0} max={1000} step={1} disabled={locked} aria-label={label+'分数'} value={Number.isNaN(draft[key])?'':draft[key]} onChange={e=>number(key,e.target.value)}/></td></tr>)}</tbody></table></div>
- <p className="rule-note">胡牌分按牌型相加。鸡分按每张；明杠只由原出牌者支付，暗杠与补杠另外三家各付设置值。编辑分数不会改变胡牌、听牌、热炮和收分资格的成立条件。</p>
+ <p className="rule-note">胡牌分按牌型相加。鸡分按每张；明杠只由原出牌者支付，暗杠与补杠另外三家各付设置值。责任鸡按一次成功碰／明杠额外收付，流局查叫直接使用最高牌型分。编辑分数不会改变胡牌、听牌、热炮和收分资格的成立条件。</p>
  {error&&<p className="rule-save-error" role="alert">{error}</p>}<div className="rule-editor-actions"><Button variant="outline" disabled={locked} onClick={onCancel}>取消</Button><Button className="primary-button" disabled={locked} onClick={()=>void save()}>{saving||busy?'正在保存／确认…':'保存，下一局生效'}</Button></div></div>;
 }
 export function RulesPublicPanel({room,busy,onSave,settled=true}:{room:any,busy:boolean,onSave:(rules:GameRules)=>Promise<void>,settled?:boolean}){
@@ -75,6 +77,7 @@ export function RulesPublicPanel({room,busy,onSave,settled=true}:{room:any,busy:
  <Dialog open={viewing} onOpenChange={setViewing}><DialogContent className="rules-dialog"><DialogHeader><DialogTitle>积分规则</DialogTitle><DialogDescription>{room?'本桌规则 · 第 '+(room.ruleRevision??1)+' 版':'默认规则'}。鸡牌和分值与游戏共用设置，每局账单按开局时的规则结算。</DialogDescription></DialogHeader>{viewing&&<>
  {pending&&<p className="rule-change-note">已保存下一局规则；本局账单保留第 {room.roundRuleRevision??1} 版。下面公示的是下一局设置。</p>}
  {room&&room.phase!=='lobby'&&!room.flipPenaltyOnlyFixed&&<p className="rule-change-note">本局在新翻鸡规则上线前已开始，保留原计分；未听牌非固定翻鸡免扣从下一局生效。</p>}
+ {room&&['play','claim'].includes(room.phase)&&!room.checkReadyEnabled&&<p className="rule-change-note">本局在查叫与责任鸡规则更新前已开始，继续按原规则结算；新规则从下一局生效。</p>}
  <RuleTables rules={r}/></>}</DialogContent></Dialog>
  <Dialog open={editing} onOpenChange={open=>{if(!busy){if(!open)pendingSave.current=null;setEditing(open)}}}><DialogContent className="rule-editor-dialog"><DialogHeader><DialogTitle>修改积分规则</DialogTitle><DialogDescription>仅房主可修改。保存后同步全桌，从下一局开始使用。</DialogDescription></DialogHeader>{editing&&<RuleEditor key={room?.code} rules={r} busy={busy} onCancel={()=>{pendingSave.current=null;setEditing(false)}} onSave={async next=>{pendingSave.current=next;await onSave(next);pendingSave.current=null;setEditing(false);setSaved('规则已保存，下一局生效；历史账单保持原分数。')}}/>}</DialogContent></Dialog>
  </section>;
