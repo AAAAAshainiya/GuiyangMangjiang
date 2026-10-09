@@ -18,6 +18,10 @@ const {TableActions}=await load('app/game-actions.tsx');const {SettlementDetails
 let calls=[];let props={options:['discard','gang:3','bu:9','hu'],phase:'play',busy:false,onAction:(...args)=>calls.push(args),seconds:20};
 let tree=TableActions(props),html=renderToStaticMarkup(tree);
 assert.match(html,/暗杠 4万/);assert.match(html,/补杠 1筒/);assert.match(html,/自摸/);assert.match(html,/20 秒/);assert.doesNotMatch(html,/>出牌</);
+for(const [options,prompt] of [[['discard','hu'],'可自摸'],[['discard','gang:3'],'可暗杠'],[['discard','bu:9'],'可补杠'],[['discard','hu','gang:3','gang:6','bu:9'],'可自摸、暗杠、补杠']]){
+ const t=TableActions({...props,options});assert.equal(t.props.children[0].props.children[0],prompt);
+ assert.doesNotMatch(renderToStaticMarkup(t),/可胡牌或开杠/);
+}
 // Clicking the central concealed-kong button passes the exact tile to the action handler.
 tree.props.children[1].props.children.find(button=>button.key==='gang:3').props.onClick();assert.deepEqual(calls,[['gang',3]]);
 html=renderToStaticMarkup(React.createElement(TableActions,{...props,options:['hu','peng','gang','pass'],phase:'claim',claimText:'玩家1打出 4万',busy:true}));

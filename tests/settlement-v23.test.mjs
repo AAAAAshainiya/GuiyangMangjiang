@@ -29,6 +29,8 @@ function settlement(room){
   const html=renderToStaticMarkup(React.createElement(social.RoundEnd,{room,Tile,stage,nextRound:React.createElement(progress.NextRound,{room,busy:false,onAction:()=>{}})}));assert(html.length>0);
  }
  const html=renderToStaticMarkup(React.createElement(closedSocial.RoundEnd,{room,Tile,nextRound:React.createElement(progress.NextRound,{room,busy:false,onAction:()=>{}})}));assert.match(html,/下一局操作/);
+ const compact=!!room.solo||!!room.local&&room.lesson.settlementStep>=4;
+ assert.equal(html.includes('round-next-panel-single'),compact);assert.equal(html.includes('next-round-single'),compact);
  renderToStaticMarkup(React.createElement(progress.HistoryPanel,{room}));
 }
 function finish(r,tick){let now=1000;for(let n=0;n<1000&&r.phase!=='done';n++){now=Math.max(now+1,r.deadline);tick(now)}assert.equal(r.phase,'done');return now}
