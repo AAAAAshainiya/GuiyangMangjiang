@@ -9,8 +9,8 @@ export function AvatarPicker({value,onChange}:{value:string,onChange:(v:string)=
 export function NextRound({room,busy,onAction}:{room:any,busy:boolean,onAction:(a:string)=>void}){
  if(room.phase!=='done')return null;
  const me=room.players[room.me],waiting=room.players.filter((p:any)=>!p.ready),missing=4-room.players.length,all=!waiting.length&&!missing;
- const local=room.solo||room.local,lessonPending=room.local&&room.lesson.settlementStep<4;
- const status=local?(lessonPending?`还在等：结算讲解 ${room.lesson.settlementStep}/4`:''):all?(room.isHost?'全部已准备':'还在等：房主开局'):'还在等：'+[...waiting.map((p:any)=>p.name),...(missing?[`${missing} 个空座位`]:[])].join('、');
+ const local=room.solo||room.local,tutorial=room.local&&!room.solo,lessonStep=room.lesson?.settlementStep??0,lessonPending=tutorial&&lessonStep<4;
+ const status=local?(lessonPending?`还在等：结算讲解 ${lessonStep}/4`:''):all?(room.isHost?'全部已准备':'还在等：房主开局'):'还在等：'+[...waiting.map((p:any)=>p.name),...(missing?[`${missing} 个空座位`]:[])].join('、');
  const start=room.isHost&&all&&!local,disabled=busy||lessonPending||!local&&me.ready&&!start;
  const label=local?'下一局':start?'开始下一局':me.ready?'已准备':'准备下一局';
  return <div className="next-round" aria-live="polite">{status&&<p className="next-round-wait">{status}</p>}<Button disabled={disabled} onClick={()=>onAction(start?'start':'ready')}>{busy?'处理中…':label}</Button></div>;
