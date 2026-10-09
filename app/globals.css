@@ -317,8 +317,8 @@ button.avatar:disabled{opacity:1;cursor:default}
  .felt>.discard-0{grid-area:6/2;justify-self:center;width:150px;align-self:end}
  .felt .discard-grid{grid-template-columns:repeat(6,22px);grid-auto-rows:26px;gap:2px}
  .felt .discard-grid .tile.mini{width:18px;height:26px;max-width:none}
- .felt .discard-grid .charge-tile{width:26px;height:18px;padding:0}
- .felt .discard-grid .charge-tile .tile-face{width:16px;height:24px;transform:rotate(90deg)}
+ .felt .discard-grid .tile.charge-tile{width:22px;height:16px;padding:0}
+ .felt .discard-grid .tile.charge-tile .tile-face{width:14px;height:20px;transform:rotate(90deg)}
  .felt>.discard-3{grid-area:3/2;justify-self:start}.felt>.discard-1{grid-area:3/2;justify-self:end}
  .felt>.discard-1,.felt>.discard-3{width:58px;max-height:226px;align-self:center}
  .felt .discard-1 .discard-grid,.felt .discard-3 .discard-grid{grid-template-columns:repeat(2,24px);grid-auto-rows:28px;gap:3px}
@@ -326,7 +326,7 @@ button.avatar:disabled{opacity:1;cursor:default}
  .felt .discard-1 .tile.mini .tile-face,.felt .discard-3 .tile.mini .tile-face{width:16px;height:22px;max-width:none;flex-shrink:0;transform:rotate(-90deg)}
  .felt .discard-3 .tile.mini .tile-face{transform:rotate(90deg)}
  .felt .discard-1 .tile.charge-tile,.felt .discard-3 .tile.charge-tile{width:18px;height:24px}
- .felt .discard-1 .tile.charge-tile .tile-face,.felt .discard-3 .tile.charge-tile .tile-face{transform:none}
+ .felt .discard-1 .tile.charge-tile .tile-face,.felt .discard-3 .tile.charge-tile .tile-face{width:16px;height:22px;transform:none}
  .felt>.table-center.playing{grid-area:3/2;justify-self:center;align-self:center;width:calc(100% - 122px);max-width:130px;min-width:40px;top:auto;left:auto}
  .felt .turn-message{font-size:12px;max-width:100%;overflow-wrap:anywhere}.felt .turn-message small{font-size:12px;white-space:normal;flex-wrap:wrap}
  .felt .compass{width:44px;height:52px}.felt .compass span{font-size:12px}

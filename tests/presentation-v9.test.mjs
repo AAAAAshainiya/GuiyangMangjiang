@@ -81,6 +81,13 @@ const soloControls=soloNodes.find(n=>n.props?.onAction&&n.props?.onRules);assert
 assert.match(renderToStaticMarkup(render({solo:true})),/牌局已暂停/);soloNodes=nodes(render({solo:true}));assert(soloNodes.filter(n=>n.props?.onClick&&n.props?.t!==undefined).every(n=>n.props.disabled));
 soloControls.props.onAction('continue');await new Promise(setImmediate);assert.equal(slots[0].paused,false);assert.equal(onlineCalls,0);
 console.log('PASS: actual solo page runs without HTTP, pauses, locks hand and resumes locally.');
+const singleGame=slots.find(s=>s?.current instanceof solo.SoloGame).current;
+singleGame.lastActivityAt=Date.now()-60001;assert.equal(singleGame.tick(),true);soloControls.props.onAction('pause');await new Promise(setImmediate);
+let idleTree=render({solo:true});assert.match(renderToStaticMarkup(idleTree),/60 秒无操作，已暂停/);assert.equal(slots[0].players[0].managed,false);
+idleTree.props.onPointerDownCapture();assert.equal(singleGame.pausedAt!==null,true);
+soloControls.props.onAction('continue');await new Promise(setImmediate);assert.equal(singleGame.pausedAt,null);
+singleGame.lastActivityAt=Date.now()-59000;render({solo:true}).props.onKeyDownCapture();assert(singleGame.lastActivityAt>Date.now()-1000);assert.equal(slots[0].idleDeadline,singleGame.lastActivityAt+60000);assert.equal(onlineCalls,0);
+console.log('PASS: actual Home idle-pause notice and manual lock, clicks never unpause, keyboard activity refreshes the idle clock and continue resumes without HTTP.');
 
 // The real Home keeps wait hints after removal and gates avatar interactions.
 slots=[];effects.length=0;

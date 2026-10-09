@@ -153,12 +153,12 @@ export function act(r:Room,i:number,action:string,t:number|undefined,now:number)
 }
 export function suggest(p:Player):number{let best=p.hand[0],lowest=Infinity;for(const t of [...new Set(p.hand)]){let v=(count(p.hand,t)-1)*4;for(const [d,w] of [[-2,0.9],[-1,1.7],[1,1.7],[2,0.9]])if(Math.floor((t+d)/9)===Math.floor(t/9))v+=count(p.hand,t+d)*w;if(t===18||t===0)v+=.35;if(t===16)v+=.7;v+=(t%9===0||t%9===8)?-.15:0;if(v<lowest){lowest=v;best=t}}return best}
 function autoTurn(r:Room,i:number){const p=r.players[i];if(!p.bot){if(!p.managed)log(r,`${p.name}超时，已进入托管`);p.managed=true;p.autoMoves=(p.autoMoves??0)+1}}
-export function tick(r:Room,now:number){let changed=false;if(r.phase==='claim'){const q=r.claim!;for(const k of Object.keys(q.choices)){if(q.answers[k])continue;const i=Number(k);if(r.players[i].bot||r.players[i].managed||now>=r.deadline){const automated=r.players[i].bot||r.players[i].managed;autoTurn(r,i);q.answers[k]=automated?q.choices[k][0]:'pass';changed=true}}
+export function tick(r:Room,now:number,manualSeat?:number){let changed=false;if(r.phase==='claim'){const q=r.claim!;for(const k of Object.keys(q.choices)){if(q.answers[k])continue;const i=Number(k);if(i===manualSeat)continue;if(r.players[i].bot||r.players[i].managed||now>=r.deadline){const automated=r.players[i].bot||r.players[i].managed;autoTurn(r,i);q.answers[k]=automated?q.choices[k][0]:'pass';changed=true}}
  if(Object.keys(q.choices).every(k=>q.answers[k])){resolve(r,now);changed=true}
- }else if(r.phase==='play'&&now>=r.deadline){const i=r.turn;autoTurn(r,i);const opts=options(r,i);if(opts.includes('hu'))act(r,i,'hu',undefined,now);else{const k=opts.find(x=>x.startsWith('gang:')||x.startsWith('bu:'));if(k){const [a,t]=k.split(':');act(r,i,a,Number(t),now)}else act(r,i,'discard',suggest(r.players[i]),now)}changed=true}return changed}
+ }else if(r.phase==='play'&&now>=r.deadline&&r.turn!==manualSeat){const i=r.turn;autoTurn(r,i);const opts=options(r,i);if(opts.includes('hu'))act(r,i,'hu',undefined,now);else{const k=opts.find(x=>x.startsWith('gang:')||x.startsWith('bu:'));if(k){const [a,t]=k.split(':');act(r,i,a,Number(t),now)}else act(r,i,'discard',suggest(r.players[i]),now)}changed=true}return changed}
 // Advance due actions atomically, respecting each bot's 500 ms or 2 s deadline
 // and preserving every un-managed human choice and response deadline.
-export function advance(r:Room,now:number){let changed=false;for(let n=0;n<(r.fast?250:1);n++){if(!tick(r,now))break;changed=true;if(r.phase==='done')break}return changed}
+export function advance(r:Room,now:number,manualSeat?:number){let changed=false;for(let n=0;n<(r.fast?250:1);n++){if(!tick(r,now,manualSeat))break;changed=true;if(r.phase==='done')break}return changed}
 export function archiveRound(r:Room,at:number){if(!r.result||r.phase!=='done')return;
  r.completedRounds=Math.max(r.completedRounds??0,r.round);
  if(!r.roundSummaries?.some(h=>h.round===r.round))r.roundSummaries=[...(r.roundSummaries??[]),{round:r.round,at,players:r.players.map(p=>({name:p.name,avatar:p.avatar,score:p.score})),delta:[...r.result.delta],winner:r.result.winner,kind:r.result.kind}].slice(-50);
