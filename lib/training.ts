@@ -1,4 +1,4 @@
-import {act,create,player,start,view,options,suggest,waits,tileName,isChicken,type Room} from './game';
+import {act,create,player,start,view,options,suggest,waits,tileName,isChicken,activeRules,setRoomRules,type Room} from './game';
 export const LESSON_STEPS=[
  {title:'你的手牌与新摸的牌',target:'hand',text:'万、筒、条各有 1—9，每种四张，共 108 张。手牌在桌子下方，右上角红点只标记新摸的那一张。先认识牌面，再选择要打的牌。'},
  {title:'组成顺子、刻子和对子',target:'hand',text:'同花色连续三张是顺子，三张相同是刻子，两张相同是对子。普通胡牌需要四组加一对，七对则是七个对子。本桌不能吃别人的弃牌，但自己手里的牌可以组成顺子。'},
@@ -16,7 +16,7 @@ export function handGroups(hand:number[]){const remaining=hand.map((t,index)=>({
 }
 export function discardPreview(r:Room,t:number){const p=r.players[0],hand=[...p.hand],at=hand.indexOf(t);if(at<0)return null;hand.splice(at,1);const ready=waits({...p,hand}),same=p.hand.filter(x=>x===t).length,near=[...new Set(p.hand.filter(x=>x!==t&&Math.floor(x/9)===Math.floor(t/9)&&Math.abs(x-t)<=2))];
  const reason=same>=2?`${tileName(t)}有 ${same} 张，打掉会减少这组对子或刻子的材料。`:near.length?`${tileName(t)}与${near.map(tileName).join('、')}有同花色搭配，打掉会减少这些组合的材料。`:`${tileName(t)}暂时没有相同牌，也没有同花色两点以内的搭配，可以考虑先处理。`;
- return {tile:t,reason,waits:ready,after:ready.length?`打出后听 ${ready.map(tileName).join('、')}。这些牌能组成胡牌；平胡无杠时需要自摸。`:'打出后暂未听牌，继续整理成四组加一对，或七个对子。',chicken:isChicken(t)?'这是固定鸡。自己打出的鸡是否收分或倒付，要看最终听牌资格；未听牌只向有收鸡资格的人付弃牌鸡分。':null};
+ return {tile:t,reason,waits:ready,after:ready.length?`打出后听 ${ready.map(tileName).join('、')}。这些牌能组成胡牌；平胡无杠时需要自摸。`:'打出后暂未听牌，继续整理成四组加一对，或七个对子。',chicken:isChicken(t,activeRules(r))?'这是固定鸡。自己打出的鸡是否收分或倒付，要看最终听牌资格；未听牌只向有收鸡资格的人付弃牌鸡分。':null};
 }
 export type Explanation={title:string,lines:string[]};
 export class TrainingGame{
@@ -34,21 +34,21 @@ export class TrainingGame{
   this.perform(seat,a!,t);this.gate=true;
  }
  prompt(){const r=this.room,p=r.players[0],lines:string[]=[];
-  if(r.phase==='claim'){lines.push(`${r.players[r.claim!.from].name}${r.claim!.rob?'尝试补杠':'打出'} ${tileName(r.claim!.t)}。`);for(const a of options(r,0))lines.push(a==='hu'?'胡：这张牌可以组成合法胡牌。胡优先于碰杠，选择后等待其余响应。':a==='peng'?'碰：用你的两张相同牌配这张弃牌，亮出三张，然后再打一张。':a==='gang'?'明杠：用三张相同手牌配这张弃牌，补摸一张；有资格时仅出牌者付豆 4 分。':'过：放弃这次响应，继续等下一次机会。')}
-  else{lines.push(r.drawn===null?'你刚碰牌，必须打出一张，此时不能算自摸。':`你新摸到 ${tileName(r.drawn)}，红点标记了它。`);lines.push(`建议先查看 ${tileName(suggest(p))}，点击手牌可看打出后的影响。`);for(const a of options(r,0))if(a.startsWith('gang:'))lines.push(`暗杠 ${tileName(Number(a.split(':')[1]))}：你有四张相同牌，杠后补摸，有资格时三家各付豆 4 分。`);else if(a.startsWith('bu:'))lines.push(`补杠 ${tileName(Number(a.split(':')[1]))}：把之前的碰补成四张，可能被抢杠胡，成功后补摸。`);else if(a==='hu')lines.push('自摸：新摸牌后已经形成胡牌。三家各付相同的牌型胡分。')}
+  if(r.phase==='claim'){lines.push(`${r.players[r.claim!.from].name}${r.claim!.rob?'尝试补杠':'打出'} ${tileName(r.claim!.t)}。`);for(const a of options(r,0))lines.push(a==='hu'?'胡：这张牌可以组成合法胡牌。胡优先于碰杠，选择后等待其余响应。':a==='peng'?'碰：用你的两张相同牌配这张弃牌，亮出三张，然后再打一张。':a==='gang'?`明杠：用三张相同手牌配这张弃牌，补摸一张；有资格时仅出牌者付豆 ${activeRules(r).ming} 分。`:'过：放弃这次响应，继续等下一次机会。')}
+  else{lines.push(r.drawn===null?'你刚碰牌，必须打出一张，此时不能算自摸。':`你新摸到 ${tileName(r.drawn)}，红点标记了它。`);lines.push(`建议先查看 ${tileName(suggest(p))}，点击手牌可看打出后的影响。`);for(const a of options(r,0))if(a.startsWith('gang:'))lines.push(`暗杠 ${tileName(Number(a.split(':')[1]))}：你有四张相同牌，杠后补摸，有资格时三家各付豆 ${activeRules(r).an} 分。`);else if(a.startsWith('bu:'))lines.push(`补杠 ${tileName(Number(a.split(':')[1]))}：把之前的碰补成四张，可能被抢杠胡，成功后补摸。`);else if(a==='hu')lines.push('自摸：新摸牌后已经形成胡牌。三家各付相同的牌型胡分。')}
   if(waits(p).length)lines.push(`当前听 ${waits(p).map(tileName).join('、')}。听牌资格在最终结算时重新判断。`);return lines;
  }
- human(action:string,tile?:number){if(action==='ready'||action==='start'){if(this.room.phase!=='done'||this.settlementStep<4)throw new Error('先完成四步结算讲解，再练下一局');this.room.players[0].ready=true;start(this.room,Date.now());this.gate=true;this.settlementStep=0;this.explanation={title:'新一局已发牌',lines:['练习累计积分保留。读完说明后点继续，再开始选择。']};this.bump();return}
+ human(action:string,tile?:number,rules?:unknown){if(action==='rules'){setRoomRules(this.room,0,rules);this.bump();return}if(action==='ready'||action==='start'){if(this.room.phase!=='done'||this.settlementStep<4)throw new Error('先完成四步结算讲解，再练下一局');this.room.players[0].ready=true;start(this.room,Date.now());this.gate=true;this.settlementStep=0;this.explanation={title:'新一局已发牌',lines:['练习累计积分保留。读完说明后点继续，再开始选择。']};this.bump();return}
   if(this.intro<LESSON_STEPS.length||this.gate)throw new Error('先读完说明，点击继续');if(!this.needsHuman())throw new Error('先点击继续，查看人机动作');this.perform(0,action,tile);this.gate=true;
  }
  private perform(seat:number,a:string,t?:number){const r=this.room,phase=r.phase,name=r.players[seat].name,claimed=r.claim?.t,drawBefore=r.drawn;act(r,seat,a,t,Date.now());const lines:string[]=[];
-  if(a==='discard'){lines.push(`${name}打出了 ${tileName(t!)}，牌放在自己的正前方。`);if(isChicken(t!))lines.push('这是固定鸡；该牌种第一次打出是冲锋鸡，横放并按 4 分基数记录，最终按听牌与热炮资格结算。');if(seat===0){const ready=waits(r.players[0]);lines.push(ready.length?`你现在听 ${ready.map(tileName).join('、')}。`:'你现在还未听牌，下一次继续整理组合。')}}
+  if(a==='discard'){lines.push(`${name}打出了 ${tileName(t!)}，牌放在自己的正前方。`);if(isChicken(t!,activeRules(r)))lines.push(`这是固定鸡；该牌种第一次打出是冲锋鸡，横放并按 ${activeRules(r).charge} 分基数记录，最终按听牌与热炮资格结算。`);if(seat===0){const ready=waits(r.players[0]);lines.push(ready.length?`你现在听 ${ready.map(tileName).join('、')}。`:'你现在还未听牌，下一次继续整理组合。')}}
   else if(a==='pass')lines.push(`${name}放弃了这次响应。`);
   else if(a==='peng')lines.push(`${name}选择碰 ${tileName(claimed!)}；其余响应结束后，胡牌仍有优先权。碰牌成功后必须出一张。`);
-  else if(a==='gang')lines.push(phase==='claim'?`${name}选择明杠 ${tileName(claimed!)}。成功后补摸，豆分由原出牌者付。`:`${name}完成暗杠${seat===0?' '+tileName(t!):''}，四张牌以牌背显示；有资格时另外三家各付豆 4 分。`);
+  else if(a==='gang')lines.push(phase==='claim'?`${name}选择明杠 ${tileName(claimed!)}。成功后补摸，豆分由原出牌者付。`:`${name}完成暗杠${seat===0?' '+tileName(t!):''}，四张牌以牌背显示；有资格时另外三家各付豆 ${activeRules(r).an} 分。`);
   else if(a==='bu')lines.push(`${name}尝试补杠 ${tileName(t!)}。抢杠胡机会结束、补杠成功后才产生豆。`);
   else if(a==='hu')lines.push(`${name}选择${phase==='play'?'自摸':'胡牌'}。响应全部结束后，按规则确认赢家。`);
-  if(seat===0&&(a==='gang'||a==='bu')&&r.turn===0&&r.phase==='play'&&r.drawn!==drawBefore)lines.push(`补摸了 ${tileName(r.drawn!)}。杠后补牌自摸为杠开；第一张弃牌被胡则是热炮，额外付 4，自己的鸡豆烧掉。`);
+  if(seat===0&&(a==='gang'||a==='bu')&&r.turn===0&&r.phase==='play'&&r.drawn!==drawBefore)lines.push(`补摸了 ${tileName(r.drawn!)}。杠后补牌自摸为杠开；第一张弃牌被胡则是热炮，额外付 ${activeRules(r).hot}，自己的鸡豆烧掉。`);
   if(r.phase==='done'){this.settlementStep=0;lines.push('本局结束。先看翻鸡和账单，再按四步学习胡、豆、鸡与实际盈亏。')}
   else lines.push('读完后点继续。下一次需要你选择时，按钮和手牌会解锁。');this.explanation={title:seat===0?'你的操作已完成':name+'刚刚行动',lines};this.bump();
  }

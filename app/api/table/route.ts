@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { CHAT_EMOJIS, AVATARS, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
+import { CHAT_EMOJIS, AVATARS, setRoomRules, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
 export const dynamic='force-dynamic';
 import {interactionKind,validRoomCode as valid,roomCode} from '@/lib/interaction';
 class RequestError extends Error {constructor(message:string,public status=400,public code='ACTION_REJECTED'){super(message)}}
@@ -35,7 +35,7 @@ async function sendChat(r:Room,id:string,b:any,now:number){
 }
 const PLAY_ACTIONS=['discard','hu','peng','gang','bu','pass'];
 function receipt(r:Room,id:string,clientId:unknown){return r.actionReceipts?.find(a=>a.player===id&&a.id===clientId)}
-function signature(b:any){const fields=[b.action,b.tile??null,b.version??null,b.context??null,b.name??null];if(b.avatar!==undefined)fields.push(b.avatar);return JSON.stringify(fields)}
+function signature(b:any){const fields=[b.action,b.tile??null,b.version??null,b.context??null,b.name??null];if(b.avatar!==undefined)fields.push(b.avatar);if(b.rules!==undefined)fields.push(b.rules);return JSON.stringify(fields)}
 function acknowledge(r:Room,id:string,clientId:string){return {clientId,status:receipt(r,id,clientId)?'applied':'not_found'}}
 function remember(r:Room,id:string,b:any,left=false){if(!b.clientId)return;r.actionReceipts=[...(r.actionReceipts??[]),{id:b.clientId,player:id,signature:signature(b),at:Date.now(),...(left?{left:true}:{})}].slice(-128)}
 async function outcome(r:Room,id:string,b:any,left=false){return {...(left?{left:true}:await visible(r,id)),...(b.clientId?{actionAck:acknowledge(r,id,b.clientId)}:{})}}
@@ -82,6 +82,7 @@ export async function POST(req:Request){try{
    if(await save(r))return reply(await outcome(r,id,b));continue;
   }
   if(i<0)throw new RequestError('请先加入房间',403);
+  if(b.action==='rules'&&r.host!==id)throw new RequestError('只有房主可以修改计分规则',403);
   // Claim responses from different seats share a stable action context, while
   // every persisted change still uses the SQL compare-and-swap revision.
   const isPlay=PLAY_ACTIONS.includes(b.action);
@@ -90,8 +91,9 @@ export async function POST(req:Request){try{
   r.players[i].seen=now;
   let left=false;
   try{
-   if(b.action==='resume'){if(!['play','claim'].includes(r.phase))throw new Error('当前无需恢复手动操作');r.players[i].managed=false;if(r.phase==='play'&&r.turn===i)r.deadline=now+45000;log(r,`${r.players[i].name}已恢复手动操作`)}
-   else if(b.action==='speed'){if(r.host!==id)throw new Error('只有房主可以设置快速模式');if(!['lobby','done'].includes(r.phase))throw new Error('下一局开始前可以调整模式');if(![0,1].includes(b.tile))throw new Error('模式设置不正确');r.fast=b.tile===1;log(r,r.fast?'快速模式已开启：人机立即行动':'快速模式已关闭：人机等待两秒')}
+   if(b.action==='rules'){setRoomRules(r,i,b.rules)}
+   else if(b.action==='resume'){if(!['play','claim'].includes(r.phase))throw new Error('当前无需恢复手动操作');r.players[i].managed=false;if(r.phase==='play'&&r.turn===i)r.deadline=now+45000;log(r,`${r.players[i].name}已恢复手动操作`)}
+   else if(b.action==='speed'){if(r.host!==id)throw new Error('只有房主可以设置快速模式');if(!['lobby','done'].includes(r.phase))throw new Error('下一局开始前可以调整模式');if(![0,1].includes(b.tile))throw new Error('模式设置不正确');r.fast=b.tile===1;log(r,r.fast?'快速模式已开启：人机等待半秒':'快速模式已关闭：人机等待两秒')}
    else if(b.action==='profile'){if(!['lobby','done'].includes(r.phase))throw new Error('本局结束后可以修改资料');const name=String(b.name??'').trim().slice(0,12);if(!name||!AVATARS.includes(b.avatar))throw new Error('请选择昵称和头像');r.players[i].name=name;r.players[i].avatar=b.avatar}
    else if(b.action==='leave'){
     const name=r.players[i].name;

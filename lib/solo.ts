@@ -1,4 +1,4 @@
-import {act,advance,create,player,start,view,type Room} from './game';
+import {act,advance,create,setRoomRules,player,start,view,type Room} from './game';
 
 // All game state and its clock stay in this browser, never in an online room.
 export class SoloGame{
@@ -13,7 +13,8 @@ export class SoloGame{
  tick(now=Date.now()){if(this.pausedAt!==null||!advance(this.room,now))return false;this.bump();return true}
  pause(now=Date.now()){if(this.pausedAt!==null||!['play','claim'].includes(this.room.phase))return;this.pausedAt=now;this.bump()}
  resume(now=Date.now()){if(this.pausedAt===null)return;this.room.deadline+=Math.max(0,now-this.pausedAt);this.pausedAt=null;this.bump()}
- human(action:string,tile?:number,now=Date.now()){
+ human(action:string,tile?:number,now=Date.now(),rules?:unknown){
+  if(action==='rules'){setRoomRules(this.room,0,rules);this.bump();return}
   if(action==='pause'){this.pause(now);return}if(action==='continue'){this.resume(now);return}
   if(this.pausedAt!==null)throw new Error('牌局已暂停，继续后再操作');
   if(action==='ready'||action==='start'){if(this.room.phase!=='done')throw new Error('本局尚未结束');this.room.players[0].ready=true;start(this.room,now)}
