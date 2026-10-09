@@ -10,11 +10,12 @@ export function ChatBubble({messages,seat,now,enabled}:{messages:Message[],seat:
  const message=enabled?[...messages].reverse().find(m=>m.seat===seat&&now-m.at<4000&&now>=m.at-1000):null;
  return message?<div className={'chat-bubble '+(message.kind==='emoji'?'emoji-bubble':'')} role="status">{message.content}</div>:null;
 }
-export function ChatPanel({room,onUpdate,onBubbles,onPick}:{room:any,onUpdate:(data:any)=>void,onBubbles:(enabled:boolean)=>void,onPick?:(effect:InteractionKind)=>void}){
+export function ChatPanel({room,onUpdate,onBubbles,onPick,blocked=false}:{room:any,onUpdate:(data:any)=>void,onBubbles:(enabled:boolean)=>void,onPick?:(effect:InteractionKind)=>void,blocked?:boolean}){
  const [open,setOpen]=useState(false),[draft,setDraft]=useState(''),[sending,setSending]=useState(false),[error,setError]=useState(''),[unread,setUnread]=useState(0),[bubbles,setBubbles]=useState(true),[retry,setRetry]=useState<{text:string,kind:string,id:string}|null>(null);
  const seen=useRef<Set<string>|null>(null),scroll=useRef<HTMLDivElement>(null),locked=useRef(false),lastSent=useRef(0);
  const messages:Message[]=room.messages??[];
  useEffect(()=>{seen.current=null;setUnread(0);setDraft('');setRetry(null);setError('');setOpen(false)},[room.code]);
+ useEffect(()=>{if(blocked)setOpen(false)},[blocked]);
  useEffect(()=>{if(!seen.current){seen.current=new Set(messages.map(m=>m.id));return}const fresh=messages.filter(m=>!seen.current!.has(m.id));seen.current=new Set(messages.map(m=>m.id));if(open)setUnread(0);else setUnread(n=>n+fresh.filter(m=>!m.mine).length)},[room.messages,open]);
  useEffect(()=>{if(open&&scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight},[room.messages,open]);
  async function send(text:string,kind='text',id=crypto.randomUUID()){
@@ -24,8 +25,8 @@ export function ChatPanel({room,onUpdate,onBubbles,onPick}:{room:any,onUpdate:(d
   catch(e){setError(e instanceof Error?e.message:'消息发送失败，请重试');setRetry({text,kind,id});}
   finally{locked.current=false;setSending(false)}
  }
- return <div className="chat-controls"><button className="chat-toggle" aria-label="打开互动与聊天" aria-expanded={open} onClick={()=>setOpen(!open)}><MessageCircle size={17}/>互动{unread>0&&!open&&<b>{unread>99?'99+':unread}</b>}</button>
- {open&&<section className="chat-panel" aria-label="房间互动与聊天"><div className="chat-panel-heading"><strong>互动与聊天</strong><label><input type="checkbox" checked={bubbles} onChange={e=>{setBubbles(e.target.checked);onBubbles(e.target.checked)}}/>桌面气泡</label><button aria-label="关闭聊天" onClick={()=>setOpen(false)}><X size={18}/></button></div>
+ return <div className="chat-controls"><button className="chat-toggle" disabled={blocked} aria-label="打开互动与聊天" aria-expanded={open&&!blocked} onClick={()=>setOpen(!open)}><MessageCircle size={17}/>互动{unread>0&&!open&&<b>{unread>99?'99+':unread}</b>}</button>
+ {open&&!blocked&&<section className="chat-panel" aria-label="房间互动与聊天"><div className="chat-panel-heading"><strong>互动与聊天</strong><label><input type="checkbox" checked={bubbles} onChange={e=>{setBubbles(e.target.checked);onBubbles(e.target.checked)}}/>桌面气泡</label><button aria-label="关闭聊天" onClick={()=>setOpen(false)}><X size={18}/></button></div>
  {onPick&&<><div className="target-effects">{INTERACTIONS.map(effect=><button key={effect.id} aria-label={effect.name} onClick={()=>{onPick(effect.id);setOpen(false)}}><span>{effect.emoji}</span>{effect.name}</button>)}</div><p className="interaction-help">选表情，再点对方头像 · 间隔 3 秒</p></>}
  <div className="chat-history" ref={scroll} aria-live="polite" aria-relevant="additions">{messages.length?messages.map(m=><div key={m.id} className={'chat-message '+(m.mine?'mine':'')}><small>{m.mine?'你':m.name} · {new Date(m.at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</small><p>{m.content}</p></div>):<p className="chat-empty">和这桌的朋友打个招呼吧。</p>}</div>
  <div className="chat-emojis">{CHAT_EMOJIS.map(emoji=><button key={emoji} disabled={sending} aria-label={'发送表情 '+emoji} onClick={()=>void send(emoji,'emoji')}>{emoji}</button>)}</div>
@@ -100,11 +101,13 @@ export function SettlementDetails({room,defaultOpen=false}:{room:any,defaultOpen
  <p className="net-equation">实际盈亏：胡 {signed(r.hu?.[me]??0)} ＋ 豆 {signed(r.beans?.[me]??0)} ＋ 鸡 {signed(r.chicken?.[me]??0)} ＝ <b>{signed(r.delta[me])}</b></p>
  </div></details>;
 }
-export function RoundEnd({room,Tile,nextRound,stage='summary'}:{room:any,Tile:any,nextRound?:any,stage?:EndStage}){
+export function RoundEnd({room,Tile,nextRound,stage='summary',onOpenChange}:{room:any,Tile:any,nextRound?:any,stage?:EndStage,onOpenChange?:(open:boolean)=>void}){
  const [closed,setClosed]=useState(false);
+ const changeOpen=(open:boolean)=>{setClosed(!open);onOpenChange?.(open)};
  const win=room.result.winner>=0?winnerText(room):null;
- if(closed)return <button className="reopen-summary" onClick={()=>setClosed(false)}>查看本局结算</button>;
+ const nextPanel=nextRound&&<section className="round-next-panel" aria-label="下一局操作">{nextRound}</section>;
+ if(closed)return <div className="round-end round-end-closed"><div className="round-end-stack"><button className="reopen-summary" onClick={()=>changeOpen(true)}>查看本局结算</button>{nextPanel}</div></div>;
  return <div className="round-end" role="region" aria-label={stage==='winner'?'本局胡牌提示':stage==='flip'?'本局翻鸡':'本局积分结算'}>
- {stage==='winner'?<div className="winner-announcement" role="status"><span className="end-kicker">本局胡牌</span><h2>{win?.title}</h2><p>{win?.detail}</p><strong>{win?.pattern}</strong><small>{room.result.flip!==null?'接下来翻鸡':'接下来结算'}</small></div>:stage==='flip'?<div className="flip-animation" role="status"><span className="end-kicker">本局翻鸡</span><div className="flip-scene"><div className="flip-card"><div className="flip-back"><Tile t={0} back/></div><div className="flip-face"><Tile t={room.result.flip}/></div></div><ChevronRight size={24}/><div className="rooster-card"><Tile t={room.result.rooster}/></div></div><p>翻出 {tileName(room.result.flip)} · {tileName(room.result.rooster)}为本局鸡</p></div>:<div className="central-summary"><div className="central-summary-heading"><div><span className="end-kicker">本局积分结算</span><h2>{room.result.winner<0?'流局 · 不加分、不扣分':room.players[room.result.winner].name+'胡了'}</h2></div><button onClick={()=>setClosed(true)} aria-label="收起结算总览"><X size={20}/></button></div><p className="end-pattern">{room.result.pattern} {room.result.kind}</p>{nextRound}<ScoreOverview room={room}/><SettlementDetails room={room} defaultOpen/>{room.result.flip!==null&&<p className="summary-chicken">翻 {tileName(room.result.flip)} · 本局鸡 {tileName(room.result.rooster)}</p>}<button className="summary-dismiss" onClick={()=>setClosed(true)}>收起总览，查看牌面</button></div>}
+ {stage==='winner'?<div className="winner-announcement" role="status"><span className="end-kicker">本局胡牌</span><h2>{win?.title}</h2><p>{win?.detail}</p><strong>{win?.pattern}</strong><small>{room.result.flip!==null?'接下来翻鸡':'接下来结算'}</small></div>:stage==='flip'?<div className="flip-animation" role="status"><span className="end-kicker">本局翻鸡</span><div className="flip-scene"><div className="flip-card"><div className="flip-back"><Tile t={0} back/></div><div className="flip-face"><Tile t={room.result.flip}/></div></div><ChevronRight size={24}/><div className="rooster-card"><Tile t={room.result.rooster}/></div></div><p>翻出 {tileName(room.result.flip)} · {tileName(room.result.rooster)}为本局鸡</p></div>:<div className="round-end-stack"><div className="central-summary"><div className="central-summary-heading"><div><span className="end-kicker">本局积分结算</span><h2>{room.result.winner<0?'流局 · 不加分、不扣分':room.players[room.result.winner].name+'胡了'}</h2></div><button onClick={()=>changeOpen(false)} aria-label="收起结算总览"><X size={20}/></button></div><p className="end-pattern">{room.result.pattern} {room.result.kind}</p><ScoreOverview room={room}/><SettlementDetails room={room} defaultOpen/>{room.result.flip!==null&&<p className="summary-chicken">翻 {tileName(room.result.flip)} · 本局鸡 {tileName(room.result.rooster)}</p>}<button className="summary-dismiss" onClick={()=>changeOpen(false)}>收起总览，查看牌面</button></div>{nextPanel}</div>}
  </div>;
 }

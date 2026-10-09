@@ -33,3 +33,30 @@ let html=renderToStaticMarkup(React.createElement(social.RoundEnd,{room,Tile,sta
 let table={code:'ABCD',round:1,players:room.players,tableEvents:[]};render(()=>experience.TableEventNotice({room:table,now:1000}));table={...table,tableEvents:[{seq:1,seat:1,from:0,kind:'peng',tile:16,at:1100},{seq:2,seat:2,from:null,kind:'an',tile:null,at:1100}]};render(()=>experience.TableEventNotice({room:table,now:1200}));html=renderToStaticMarkup(render(()=>experience.TableEventNotice({room:table,now:1200})));assert.match(html,/乙碰了甲的8筒/);timers.values().find(t=>t.delay===2300).fn();html=renderToStaticMarkup(render(()=>experience.TableEventNotice({room:table,now:1200})));assert.match(html,/丙暗杠/);assert.doesNotMatch(html,/8筒/);document.hidden=true;docListeners.get('visibilitychange')();assert.equal(render(()=>experience.TableEventNotice({room:table,now:1400})),null);reset();
 const css=fs.readFileSync('app/globals.css','utf8');assert.doesNotMatch(css,/latest-discard::after/);assert.match(css,/immersive-app[\s\S]*side-panel\{display:none\}/);assert.match(css,/\.latest-discard\{outline:/);
 console.log('PASS: actual fullscreen fallback/native/escape/scroll cleanup, sequential end-stage timers and output, queued source notices and concealed kong, background cleanup and outline-only latest discard.');
+
+// The next-game controls stay outside the bill and survive collapse/reopen.
+reset();
+const controlledSocial=await load('app/game-social.tsx',{'react':mod(hooks),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/lib/game':mod(game),'@/lib/table-events':mod(events),'@/lib/interaction':mod(interaction),'@/lib/table-client':mod(client)});
+function nodes(tree){if(!tree||typeof tree!=='object')return [];if(Array.isArray(tree))return tree.flatMap(nodes);return [tree,...nodes(tree.props?.children)]}
+const visibility=[],nextRound=React.createElement('button',null,'准备下一局');
+const endProps={room,Tile,stage:'summary',nextRound,onOpenChange:open=>visibility.push(open)};
+let endTree=render(()=>controlledSocial.RoundEnd(endProps));
+const stack=nodes(endTree).find(n=>n.props?.className==='round-end-stack');
+assert.deepEqual(Array.from(stack.props.children,n=>n.props.className),['central-summary','round-next-panel']);
+assert(!nodes(stack.props.children[0]).includes(nextRound),'ready controls are not inside the scrolling bill');
+assert(nodes(stack.props.children[1]).includes(nextRound));
+nodes(endTree).find(n=>n.props?.['aria-label']==='收起结算总览').props.onClick();
+endTree=render(()=>controlledSocial.RoundEnd(endProps));
+assert(!nodes(endTree).some(n=>n.props?.className==='central-summary'));
+assert(nodes(endTree).includes(nextRound),'next game remains available after hiding the bill');
+assert.deepEqual(visibility,[false]);
+nodes(endTree).find(n=>n.props?.className==='reopen-summary').props.onClick();
+endTree=render(()=>controlledSocial.RoundEnd(endProps));assert(nodes(endTree).some(n=>n.props?.className==='central-summary'));assert.deepEqual(visibility,[false,true]);
+for(const stage of ['winner','flip']){reset();endTree=render(()=>controlledSocial.RoundEnd({...endProps,stage}));assert(!nodes(endTree).includes(nextRound),'no next-game control before the reveal sequence finishes')}
+reset();
+const chatProps={room:{...room,messages:[]},onUpdate:()=>{},onBubbles:()=>{}};
+let chatTree=render(()=>controlledSocial.ChatPanel(chatProps));nodes(chatTree).find(n=>n.props?.className==='chat-toggle').props.onClick();
+chatTree=render(()=>controlledSocial.ChatPanel(chatProps));assert(nodes(chatTree).some(n=>n.props?.className==='chat-panel'));
+chatTree=render(()=>controlledSocial.ChatPanel({...chatProps,blocked:true}));assert(!nodes(chatTree).some(n=>n.props?.className==='chat-panel'));assert(nodes(chatTree).find(n=>n.props?.className==='chat-toggle').props.disabled);
+chatTree=render(()=>controlledSocial.ChatPanel(chatProps));assert(!nodes(chatTree).some(n=>n.props?.className==='chat-panel'),'settlement closes chat without reopening it automatically');nodes(chatTree).find(n=>n.props?.className==='chat-toggle').props.onClick();chatTree=render(()=>controlledSocial.ChatPanel(chatProps));assert(nodes(chatTree).some(n=>n.props?.className==='chat-panel'),'chat can reopen after settlement is collapsed');reset();
+console.log('PASS: independent next-round panel below bill, collapse/reopen preserves controls, reveal sequence blocks early restart, settlement closes and blocks chat then restores entry.');

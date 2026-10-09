@@ -24,7 +24,7 @@ const m=new vm.SourceTextModule(code,{context});await m.link(name=>modules[name]
 function render(props){cursor=0;return m.namespace.default(props)}
 function nodes(tree){if(!tree||typeof tree!=='object')return [];if(Array.isArray(tree))return tree.flatMap(nodes);let result=[tree];if(typeof tree.type==='function'&&tree.type.name==='Seat')result.push(...nodes(tree.type(tree.props)));else result.push(...nodes(tree.props?.children));return result}
 let tree=render(),all=nodes(tree),html=renderToStaticMarkup(tree);
-assert.match(html,/table-center waiting"><span class="table-seal">贵阳<br\/>捉鸡<\/span><\/div>/);assert.doesNotMatch(html,/好牌，值得一起等/);
+assert.match(html,/table-center waiting"><span class="table-seal">贵阳<br\/>捉鸡<\/span><\/div>/);assert.doesNotMatch(html,/好牌，值得一起等/);assert.doesNotMatch(html,/tip-card|新手陪打|看看这桌怎么玩/);
 const self=all.find(n=>n.props?.className==='self-seat');assert(nodes(self).some(n=>n.type===ChatPanel));const hand=all.find(n=>n.props?.className==='hand-area');assert(!nodes(hand).some(n=>n.type===ChatPanel));
 await all.find(n=>n.props?.['aria-label']==='复制邀请码').props.onClick();assert.deepEqual(copied,['ABCD']);await all.find(n=>n.props?.children==='复制邀请链接').props.onClick();assert.equal(copied[1],'https://example.test/?room=ABCD');
 const panel=all.find(n=>n.type===ChatPanel);panel.props.onPick('tomato');tree=render();all=nodes(tree);const avatars=all.filter(n=>n.type==='button'&&n.props?.['data-avatar-seat']!==undefined);assert.equal(avatars.length,3);assert(avatars.every(n=>!n.props.disabled));assert.match(renderToStaticMarkup(tree),/点对方头像/);
@@ -80,3 +80,13 @@ const soloControls=soloNodes.find(n=>n.props?.onAction&&n.props?.onRules);assert
 assert.match(renderToStaticMarkup(render({solo:true})),/牌局已暂停/);soloNodes=nodes(render({solo:true}));assert(soloNodes.filter(n=>n.props?.onClick&&n.props?.t!==undefined).every(n=>n.props.disabled));
 soloControls.props.onAction('continue');await new Promise(setImmediate);assert.equal(slots[0].paused,false);assert.equal(onlineCalls,0);
 console.log('PASS: actual solo page runs without HTTP, pauses, locks hand and resumes locally.');
+
+// The real Home keeps wait hints after removal and gates avatar interactions.
+slots=[];effects.length=0;
+const ended={...room,round:1,phase:'done',turn:0,waits:[18,0],remaining:10,players:room.players.map(p=>({...p,hand:[18],count:1,charges:[]})),result:{winner:-1,burned:[false,false,false,false],delta:[0,0,0,0],beans:[0,0,0,0],hu:[0,0,0,0],chicken:[0,0,0,0],values:[0,0,0,0],flip:null,pattern:'流局',kind:'流局'}};
+slots[0]=ended;tree=render();all=nodes(tree);html=renderToStaticMarkup(tree);assert.match(html,/听 1条、1万/);assert.doesNotMatch(html,/tip-card|新手陪打/);
+assert.equal(all.find(n=>n.type===ChatPanel).props.blocked,true);
+let endComponent=all.find(n=>n.props?.onOpenChange&&n.props?.Tile);assert(endComponent);endComponent.props.onOpenChange(false);all=nodes(render());assert.equal(all.find(n=>n.type===ChatPanel).props.blocked,false);
+endComponent=all.find(n=>n.props?.onOpenChange&&n.props?.Tile);endComponent.props.onOpenChange(true);all=nodes(render());assert.equal(all.find(n=>n.type===ChatPanel).props.blocked,true);
+slots[0]={...ended,round:2};all=nodes(render());assert.equal(all.find(n=>n.type===ChatPanel).props.blocked,true,'new round starts with its settlement overlay open');
+console.log('PASS: actual Home removed hint card, retained wait tiles, and synchronizes interaction availability with settlement collapse/reopen and new rounds.');
