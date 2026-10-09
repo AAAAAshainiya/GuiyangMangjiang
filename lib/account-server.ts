@@ -1,0 +1,20 @@
+import {db} from '@/db';
+import {scrypt,timingSafeEqual} from 'node:crypto';
+import {defaultRules,validateRules} from './rules';
+import {safeAvatar,type Account} from './account-shared';
+import {validTheme} from './themes';
+export class AccountError extends Error{constructor(message:string,public status=400){super(message)}}
+export const randomToken=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');
+export async function digest(value:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),n=>n.toString(16).padStart(2,'0')).join('')}
+export function accountCookie(token:string,maxAge=2592000){return `mj_account=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`}
+export async function passwordHash(password:string,salt:string){return await new Promise<string>((resolve,reject)=>scrypt(password,salt,32,{N:32768,r:8,p:3,maxmem:64*1024*1024},(e,key)=>e?reject(e):resolve(key.toString('hex'))))}
+export function verifyHash(a:string,b:string){return /^[a-f0-9]{64}$/.test(a)&&/^[a-f0-9]{64}$/.test(b)&&timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'))}
+export function publicAccount(row:any):Account{return{id:row.id,username:row.username,nickname:row.nickname,avatar:safeAvatar(row.avatar),theme:validTheme(row.theme)?row.theme:'jade',rules:validateRules(JSON.parse(row.rules||JSON.stringify(defaultRules()))),revision:row.revision}}
+export async function getAccount(req:Request):Promise<Account|null>{const t=req.headers.get('cookie')?.match(/(?:^|;\s*)mj_account=([a-f0-9]{64})(?:;|$)/)?.[1];if(!t)return null;const row=await db().prepare('SELECT u.* FROM mahjong_users u JOIN mahjong_sessions s ON s.user_id = u.id WHERE s.token_hash = ? AND s.expires > ?').bind(await digest(t),Date.now()).first();return row?publicAccount(row):null}
+export async function requireAccount(req:Request){const a=await getAccount(req);if(!a)throw new AccountError('请先登录账号',401);return a}
+export function checkOrigin(req:Request){const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin||req.headers.get('sec-fetch-site')==='cross-site')throw new AccountError('请求来源不正确',403)}
+export async function jsonBody(req:Request,max=8192){checkOrigin(req);if(Number(req.headers.get('content-length')||0)>max)throw new AccountError('请求内容过大',413);const text=await req.text();if(new TextEncoder().encode(text).length>max)throw new AccountError('请求内容过大',413);try{const b=JSON.parse(text);if(!b||typeof b!=='object'||Array.isArray(b))throw 0;return b}catch{throw new AccountError('请求内容不正确')}}
+export function accountReply(data:unknown,status=200,cookie?:string){return Response.json(data,{status,headers:{'Cache-Control':'no-store',...(cookie?{'Set-Cookie':cookie}:{})}})}
+export function accountFailure(e:unknown){if(!(e instanceof AccountError))console.error('account request failed');return accountReply({error:e instanceof AccountError?e.message:'保存或连接失败，请稍后重试'},e instanceof AccountError?e.status:503)}
+export async function rateLimit(req:Request,key:string,limit=8,windowMs=15*60000){const now=Date.now(),ip=req.headers.get('cf-connecting-ip')||'unknown',bucket=await digest(`${key}:${ip}`);const row=await db().prepare('INSERT INTO mahjong_auth_limits (key, count, reset_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count = CASE WHEN reset_at <= ? THEN 1 ELSE count + 1 END, reset_at = CASE WHEN reset_at <= ? THEN excluded.reset_at ELSE reset_at END RETURNING count').bind(bucket,now+windowMs,now,now).first<{count:number}>();if((row?.count??limit+1)>limit)throw new AccountError('操作太频繁，请稍后再试',429)}
+export async function issueSession(userId:string){const token=randomToken(),now=Date.now();await db().batch([db().prepare('DELETE FROM mahjong_sessions WHERE expires <= ?').bind(now),db().prepare('INSERT INTO mahjong_sessions (token_hash,user_id,expires) VALUES (?,?,?)').bind(await digest(token),userId,now+2592000000),db().prepare('DELETE FROM mahjong_auth_limits WHERE reset_at < ?').bind(now-86400000)]);return token}

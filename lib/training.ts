@@ -1,4 +1,5 @@
 import {nextBotName,act,create,player,start,view,options,suggest,waits,tileName,isChicken,activeRules,setRoomRules,type Room} from './game';
+import {defaultRules,type GameRules} from './rules';
 export const LESSON_STEPS=[
  {title:'你的手牌与新摸的牌',target:'hand',text:'万、筒、条各有 1—9，每种四张，共 108 张。手牌在桌子下方，右上角红点只标记新摸的那一张。先认识牌面，再选择要打的牌。'},
  {title:'组成顺子、刻子和对子',target:'hand',text:'同花色连续三张是顺子，三张相同是刻子，两张相同是对子。普通胡牌需要四组加一对，七对则是七个对子。本桌不能吃别人的弃牌，但自己手里的牌可以组成顺子。'},
@@ -22,7 +23,7 @@ export type Explanation={title:string,lines:string[]};
 export class TrainingGame{
  lastAction:{seat:number,action:string,phase:string}|null=null;
  room:Room;intro=0;gate=true;settlementStep=0;explanation:Explanation={title:'欢迎来到新手练习',lines:['你和三个人机一起练习，所有动作都由你按步骤推进。']};
- constructor(name='新手牌友',avatar='🐼'){this.room=create('LEARN','learner',name);this.room.players[0].avatar=avatar;for(let i=0;i<3;i++)this.room.players.push(player('bot:teacher'+i,nextBotName(this.room.players),true));this.room.players[0].ready=true;start(this.room,Date.now());this.room.version=0;this.room.playVersion=0}
+ constructor(name='新手牌友',avatar='🐼',rules:GameRules=defaultRules(),accountOwner?:string){this.room=create('LEARN','learner',name);this.room.rules=rules;this.room.accountOwner=accountOwner;this.room.players[0].avatar=avatar;for(let i=0;i<3;i++)this.room.players.push(player('bot:teacher'+i,nextBotName(this.room.players),true));this.room.players[0].ready=true;start(this.room,Date.now());this.room.version=0;this.room.playVersion=0}
  snapshot(){const v=view(this.room,'learner');return {...v,local:true,deadline:Number.MAX_SAFE_INTEGER,options:this.intro<LESSON_STEPS.length||this.gate?[]:v.options,messages:[],interactions:[],lesson:{intro:this.intro,gate:this.gate,settlementStep:this.settlementStep,explanation:this.explanation,lastAction:this.lastAction}}}
  bump(){this.room.version=(this.room.version??0)+1;this.room.playVersion=this.room.version}
  needsHuman(){return this.room.phase==='play'&&this.room.turn===0||this.room.phase==='claim'&&options(this.room,0).length>0}

@@ -1,0 +1,1 @@
+CREATE INDEX `records_user_replays` ON `mahjong_account_records` (`user_id`,`has_replay`,`favorite`,`at`);

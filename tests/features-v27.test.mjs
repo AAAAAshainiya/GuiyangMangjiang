@@ -1,3 +1,5 @@
+import {loader} from './account-v32-loader.mjs';
+const avatarModule=await loader()('app/game-avatar.tsx');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -13,7 +15,7 @@ import {loadLocalLibrary} from './modules-v13.mjs';
 const training=await loadLocalLibrary('lib/training.ts'),solo=await loadLocalLibrary('lib/solo.ts'),selection=await loadLocalLibrary('lib/selection.ts'),events=await loadLocalLibrary('lib/table-events.ts');
 const Button=({children,...p})=>React.createElement('button',p,children),dialog=Object.fromEntries(['Dialog','DialogContent','DialogHeader','DialogTitle','DialogDescription'].map(k=>[k,({children})=>React.createElement('div',null,children)]));
 function mod(o){return new vm.SyntheticModule(Object.keys(o),function(){for(const k of Object.keys(o))this.setExport(k,o[k])})}
-async function component(file,extra={}){const imports={'react':React,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/training':training,'@/lib/table-events':events,'@/lib/table-client':client,'@/lib/interaction':interaction,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog,...extra},m=new vm.SourceTextModule(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText);await m.link(n=>mod(imports[n]));await m.evaluate();return m.namespace}
+async function component(file,extra={}){const imports={'react':React,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/training':training,'@/lib/table-events':events,'@/lib/table-client':client,'@/lib/interaction':interaction,'./game-avatar':avatarModule,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog,...extra},m=new vm.SourceTextModule(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText);await m.link(n=>mod(imports[n]));await m.evaluate();return m.namespace}
 const social=await component('app/game-social.tsx'),coach=await component('app/game-coach.tsx'),progress=await component('app/game-progress.tsx',{'./game-social':social});
 // Same tile after a sorted draw, duplicate tile identity, meld consumption and new round.
 let r={code:'1234',round:1,me:0,phase:'play',players:[{hand:[1,4,4,7]}]},chosen=selection.selectHandTile(r,2);assert.equal(selection.selectedHandIndex(r,chosen),2);

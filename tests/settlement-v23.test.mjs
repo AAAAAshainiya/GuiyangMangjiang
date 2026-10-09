@@ -1,3 +1,5 @@
+import {loader} from './account-v32-loader.mjs';
+const avatarModule=await loader()('app/game-avatar.tsx');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -16,7 +18,7 @@ const dialog=Object.fromEntries(['Dialog','DialogContent','DialogHeader','Dialog
 function synthetic(obj){return new vm.SyntheticModule(Object.keys(obj),function(){for(const k of Object.keys(obj))this.setExport(k,obj[k])})}
 async function component(file,extra={}){
  const source=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
- const imports={'react':React,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/training':training,'@/lib/table-events':events,'@/lib/interaction':interaction,'@/lib/table-client':client,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog,...extra};
+ const imports={'react':React,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/training':training,'@/lib/table-events':events,'@/lib/interaction':interaction,'@/lib/table-client':client,'./game-avatar':avatarModule,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog,...extra};
  const m=new vm.SourceTextModule(source);await m.link(n=>synthetic(imports[n]));await m.evaluate();return m.namespace;
 }
 const social=await component('app/game-social.tsx'),closedSocial=await component('app/game-social.tsx',{'react':{...React,useState:()=>[true,()=>{}]}}),progress=await component('app/game-progress.tsx',{'./game-social':social});

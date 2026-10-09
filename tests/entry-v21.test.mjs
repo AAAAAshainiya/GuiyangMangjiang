@@ -1,3 +1,5 @@
+import {loader} from './account-v32-loader.mjs';
+const avatarModule=await loader()('app/game-avatar.tsx');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -12,14 +14,14 @@ let cursor=0,slots=[],effects=[];
 const hooks={useState(v){const i=cursor++;if(!(i in slots))slots[i]=v;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v]},useEffect(fn){effects.push(fn)}};
 const mod=obj=>new vm.SyntheticModule(Object.keys(obj),function(){for(const k of Object.keys(obj))this.setExport(k,obj[k])});
 function AvatarPicker(){return null}
-const modules={'react':mod(hooks),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/components/ui/button':mod({Button:({children,...props})=>React.createElement('button',props,children)}),'./game-progress':mod({AvatarPicker}),'@/lib/interaction':mod(interaction)};
+const modules={'./game-avatar':mod(avatarModule),'react':mod(hooks),'react/jsx-runtime':mod(jsx),'lucide-react':mod(icons),'@/components/ui/button':mod({Button:({children,...props})=>React.createElement('button',props,children)}),'./game-progress':mod({AvatarPicker}),'@/lib/interaction':mod(interaction)};
 const source=ts.transpileModule(fs.readFileSync('app/game-entry.tsx','utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const m=new vm.SourceTextModule(source);await m.link(n=>modules[n]);await m.evaluate();
 const online=[],local=[];
 const props={name:'小张',avatar:'🐼',code:'',tab:'create',busy:false,initialized:true,profileLoaded:true,onName:v=>props.name=v,onAvatar:v=>props.avatar=v,onCode:v=>props.code=v,onTab:v=>props.tab=v,onOnline:v=>online.push(v),onLocal:(...v)=>local.push(v)};
 function render(){cursor=0;effects=[];return m.namespace.GameEntry(props)}
 function nodes(t){if(!t||typeof t!=='object')return [];if(Array.isArray(t))return t.flatMap(nodes);return [t,...nodes(t.props?.children)]}
-const text=t=>typeof t==='string'?t:Array.isArray(t)?t.map(text).join(''):text(t?.props?.children??'');
+const text=t=>t?.type===avatarModule.PlayerAvatar?t.props.avatar??t.props.name:typeof t==='string'?t:Array.isArray(t)?t.map(text).join(''):text(t?.props?.children??'');
 const click=label=>{const n=nodes(render()).find(n=>n.props?.onClick&&text(n)===label);assert(n,'button '+label);assert(!n.props.disabled);n.props.onClick()};
 let t=render(),html=renderToStaticMarkup(t);assert.match(html,/id="nickname"/);assert.match(html,/更换头像/);assert.equal(nodes(t).filter(n=>n.props?.className?.startsWith('mode-choice')).length,3);assert.doesNotMatch(html,/创建房间|加入房间|开始游戏|开始教学|roomcode/);
 click('🐼换头像');assert(nodes(render()).some(n=>n.type===AvatarPicker));nodes(render()).find(n=>n.type===AvatarPicker).props.onChange('🐔');assert.equal(props.avatar,'🐔');assert(!nodes(render()).some(n=>n.type===AvatarPicker));

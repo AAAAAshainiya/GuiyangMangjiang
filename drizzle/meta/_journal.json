@@ -22,6 +22,20 @@
       "when": 1791559889169,
       "tag": "0002_parallel_amphibian",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791568063394,
+      "tag": "0003_normal_vin_gonzales",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791569479170,
+      "tag": "0004_heavy_lila_cheney",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import {loader} from './account-v32-loader.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -19,12 +20,17 @@ const DB = {
   }};
  }
 };
+DB.batch=async statements=>{const out=[];for(const st of statements)out.push(await st.run());return out};
+const accountLoad=loader({'@/db':{db:()=>DB}});
+const accountServer=await accountLoad('lib/account-server.ts'),recordServer=await accountLoad('lib/account-records.ts');
+const accountMod=new vm.SyntheticModule(Object.keys(accountServer),function(){for(const k of Object.keys(accountServer))this.setExport(k,accountServer[k])});
+const recordMod=new vm.SyntheticModule(Object.keys(recordServer),function(){for(const k of Object.keys(recordServer))this.setExport(k,recordServer[k])});
 const dbMod=new vm.SyntheticModule(['db'],function(){this.setExport('db',()=>DB)});
 const gameMod=new vm.SyntheticModule(Object.keys(engine),function(){for(const k of Object.keys(engine))this.setExport(k,engine[k])});
 const source=ts.transpileModule(fs.readFileSync('app/api/table/route.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext}}).outputText;
 const forcedCodes=[];
 const interactionMod=new vm.SyntheticModule(Object.keys(interaction),function(){for(const k of Object.keys(interaction))this.setExport(k,k==='roomCode'?()=>forcedCodes.shift()??interaction.roomCode():interaction[k])});
-const route=new vm.SourceTextModule(source);await route.link(s=>s==='@/db'?dbMod:s==='@/lib/interaction'?interactionMod:gameMod);await route.evaluate();
+const route=new vm.SourceTextModule(source);await route.link(s=>s==='@/lib/account-server'?accountMod:s==='@/lib/account-records'?recordMod:s==='@/db'?dbMod:s==='@/lib/interaction'?interactionMod:gameMod);await route.evaluate();
 const API=route.namespace;const base='https://example.test';
 async function guest(){const r=await API.GET(new Request(base+'/api/table'));assert.equal(r.status,200);const cookie=r.headers.get('set-cookie')?.split(';')[0];assert.ok(cookie);return cookie}
 async function call(cookie,body){const r=await API.POST(new Request(base+'/api/table',{method:'POST',headers:{'content-type':'application/json',cookie},body:JSON.stringify(body)}));const d=await r.json();if(r.status!==200)throw new Error(JSON.stringify(d));return d}
@@ -148,23 +154,29 @@ console.log('PASS: v13 real SQLite profile dedup/avatar persistence, host-only s
 const oldId=crypto.randomUUID(),oldBody={action:'discard',code:modeCode,tile:0,version:0,clientId:oldId};const legacyState=JSON.parse(sqlite.prepare('SELECT state FROM mahjong_rooms WHERE code = ?').get(modeCode).state);legacyState.actionReceipts.push({id:oldId,player:d.split('=')[1],signature:JSON.stringify(['discard',0,0,null,null]),at:Date.now()});sqlite.prepare('UPDATE mahjong_rooms SET state = ? WHERE code = ?').run(JSON.stringify(legacyState),modeCode);assert.equal((await call(d,oldBody)).actionAck.status,'applied');
 console.log('PASS: v13 preserves already-committed v12 action receipt signatures across deployment.');
 
-// Persisted custom rules are host-only, atomic, idempotent and snapshotted per round.
-let configured=await call(a,{action:'create',name:'自定义房主'}),customRules=engine.defaultRules();
+// Persisted custom rules now require actual registered accounts and host authority.
+const accountAPI=await accountLoad('app/api/account/route.ts');
+async function accountCall(cookie,body){const res=await accountAPI.POST(new Request(base+'/api/account',{method:'POST',headers:{cookie,'content-type':'application/json'},body:JSON.stringify(body)}));const data=await res.json();assert.equal(res.status,200,JSON.stringify(data));return {cookie:res.headers.get('set-cookie')?.split(';')[0]??cookie,user:data.user}}
+let registeredA=await accountCall('',{action:'register',username:'server_rules_a',password:'rules-password-A',nickname:'自定义房主'}),registeredB=await accountCall('',{action:'register',username:'server_rules_b',password:'rules-password-B',nickname:'规则好友'}),rulesA=registeredA.cookie,rulesB=registeredB.cookie;
+
+let configured=await call(rulesA,{action:'create',name:'自定义房主'}),customRules=engine.defaultRules();
 customRules.chickenTiles=[5,16];customRules.chicken=7;customRules.charge=11;customRules.flip=2;customRules.ming=6;customRules.an=8;customRules.bu=9;customRules.hot=5;customRules.hu.ping=3;customRules.hu.peng=9;
-await call(b,{action:'join',code:configured.code,name:'规则好友'});configured=(await read(a,configured.code)).data;
-let rejected=await API.POST(new Request(base+'/api/table',{method:'POST',headers:{'content-type':'application/json',cookie:b},body:JSON.stringify({action:'rules',code:configured.code,rules:customRules,version:configured.version,clientId:crypto.randomUUID()})}));assert.equal(rejected.status,403);assert.match((await rejected.json()).error,/只有房主/);
-const saveId=crypto.randomUUID(),ruleBody={action:'rules',code:configured.code,rules:customRules,version:configured.version,clientId:saveId};configured=await call(a,ruleBody);assert.deepEqual(configured.rules,customRules);assert.equal(configured.ruleRevision,2);const ruleVersion=configured.version;
-assert.deepEqual((await read(b,configured.code)).data.rules,customRules);configured=await call(a,ruleBody);assert.equal(configured.ruleRevision,2);assert.equal(configured.version,ruleVersion,'same rule operation must not run twice');
-await assert.rejects(call(a,{...ruleBody,rules:{...customRules,flip:3}}),/操作编号已经使用/);
-await assert.rejects(call(a,{action:'rules',code:configured.code,rules:{...customRules,chickenTiles:[27]},version:configured.version,clientId:crypto.randomUUID()}),/固定鸡牌/);
-await assert.rejects(call(a,{action:'rules',code:configured.code,rules:{...customRules,hot:-1},version:configured.version,clientId:crypto.randomUUID()}),/整数/);
-configured=await call(a,{action:'fill',code:configured.code});configured=await call(a,{action:'ready',code:configured.code});configured=await call(b,{action:'ready',code:configured.code});configured=await call(a,{action:'start',code:configured.code});assert.deepEqual(configured.roundRules,customRules);assert.equal(configured.flipPenaltyOnlyFixed,true);
-await assert.rejects(call(a,{action:'rules',code:configured.code,rules:engine.defaultRules(),version:configured.version,clientId:crypto.randomUUID()}),/本局结束/);
+await call(rulesB,{action:'join',code:configured.code,name:'规则好友'});configured=(await read(rulesA,configured.code)).data;
+let rejected=await API.POST(new Request(base+'/api/table',{method:'POST',headers:{'content-type':'application/json',cookie:rulesB},body:JSON.stringify({action:'rules',code:configured.code,rules:customRules,version:configured.version,clientId:crypto.randomUUID()})}));assert.equal(rejected.status,403);assert.match((await rejected.json()).error,/只有房主/);
+registeredA=await accountCall(rulesA,{action:'rules',rules:customRules,revision:registeredA.user.revision});
+const saveId=crypto.randomUUID(),ruleBody={action:'rules',code:configured.code,rules:customRules,version:configured.version,clientId:saveId};configured=await call(rulesA,ruleBody);assert.deepEqual(configured.rules,customRules);assert.equal(configured.ruleRevision,2);const ruleVersion=configured.version;
+assert.deepEqual((await read(rulesB,configured.code)).data.rules,customRules);configured=await call(rulesA,ruleBody);assert.equal(configured.ruleRevision,2);assert.equal(configured.version,ruleVersion,'same rule operation must not run twice');
+await assert.rejects(call(rulesA,{...ruleBody,rules:{...customRules,flip:3}}),/操作编号已经使用/);
+await assert.rejects(call(rulesA,{action:'rules',code:configured.code,rules:{...customRules,chickenTiles:[27]},version:configured.version,clientId:crypto.randomUUID()}),/固定鸡牌/);
+await assert.rejects(call(rulesA,{action:'rules',code:configured.code,rules:{...customRules,hot:-1},version:configured.version,clientId:crypto.randomUUID()}),/整数/);
+configured=await call(rulesA,{action:'fill',code:configured.code});configured=await call(rulesA,{action:'ready',code:configured.code});configured=await call(rulesB,{action:'ready',code:configured.code});configured=await call(rulesA,{action:'start',code:configured.code});assert.deepEqual(configured.roundRules,customRules);assert.equal(configured.flipPenaltyOnlyFixed,true);
+await assert.rejects(call(rulesA,{action:'rules',code:configured.code,rules:engine.defaultRules(),version:configured.version,clientId:crypto.randomUUID()}),/本局结束/);
 let configuredState=JSON.parse(sqlite.prepare('SELECT state FROM mahjong_rooms WHERE code = ?').get(configured.code).state);configuredState.phase='play';configuredState.turn=0;configuredState.deadline=Date.now()+45000;configuredState.drawn=25;configuredState.heavenlyReady=[false,false,false,false];configuredState.players.forEach(p=>{p.hand=[1,3,5,7,8,10,12,14,15,17,19,21,23];p.melds=[];p.river=[]});configuredState.players[0].hand=[1,2,3,4,5,6,10,11,12,21,21,21,25,25];configuredState.players[1].river=[1];configuredState.wall=[0];
-sqlite.prepare('UPDATE mahjong_rooms SET state = ? WHERE code = ?').run(JSON.stringify(configuredState),configured.code);configured=(await read(a,configured.code)).data;configured=await call(a,{action:'hu',code:configured.code,context:configured.actionContext,version:configured.version,clientId:crypto.randomUUID()});assert.equal(configured.result.huValues[0],3);assert.equal(configured.result.values[1],0);assert.deepEqual(configured.result.rules,customRules);const oldBill=JSON.stringify(configured.result),oldDelta=[...configured.result.delta];
-const afterRules=engine.defaultRules(),lostRulesId=crypto.randomUUID(),lostRulesBody={action:'rules',code:configured.code,rules:afterRules,version:configured.version,clientId:lostRulesId};failVisibleOnce=true;rejected=await API.POST(new Request(base+'/api/table',{method:'POST',headers:{'content-type':'application/json',cookie:a},body:JSON.stringify(lostRulesBody)}));assert.equal(rejected.status,500);
-let confirm=await API.GET(new Request(base+'/api/table?room='+configured.code+'&actionId='+lostRulesId,{headers:{cookie:a}}));configured=await confirm.json();assert.equal(configured.actionAck.status,'applied');assert.deepEqual(configured.rules,afterRules);assert.equal(configured.ruleRevision,3);assert.equal(JSON.stringify(configured.result),oldBill);configured=await call(a,lostRulesBody);assert.equal(configured.ruleRevision,3);assert.deepEqual(configured.history[0].bill.result.delta,oldDelta);assert.deepEqual(configured.history[0].bill.result.rules,customRules);
-configured=await call(a,{action:'ready',code:configured.code});configured=await call(b,{action:'ready',code:configured.code});configured=await call(a,{action:'start',code:configured.code});assert.deepEqual(configured.roundRules,afterRules);assert.equal(configured.roundRuleRevision,3);assert.deepEqual(configured.history[0].bill.result.rules,customRules);
+sqlite.prepare('UPDATE mahjong_rooms SET state = ? WHERE code = ?').run(JSON.stringify(configuredState),configured.code);configured=(await read(rulesA,configured.code)).data;configured=await call(rulesA,{action:'hu',code:configured.code,context:configured.actionContext,version:configured.version,clientId:crypto.randomUUID()});assert.equal(configured.result.huValues[0],3);assert.equal(configured.result.values[1],0);assert.deepEqual(configured.result.rules,customRules);const oldBill=JSON.stringify(configured.result),oldDelta=[...configured.result.delta];
+registeredA=await accountCall(rulesA,{action:'resetRules',revision:registeredA.user.revision});
+const afterRules=engine.defaultRules(),lostRulesId=crypto.randomUUID(),lostRulesBody={action:'rules',code:configured.code,rules:afterRules,version:configured.version,clientId:lostRulesId};failVisibleOnce=true;rejected=await API.POST(new Request(base+'/api/table',{method:'POST',headers:{'content-type':'application/json',cookie:rulesA},body:JSON.stringify(lostRulesBody)}));assert.equal(rejected.status,500);
+let confirm=await API.GET(new Request(base+'/api/table?room='+configured.code+'&actionId='+lostRulesId,{headers:{cookie:rulesA}}));configured=await confirm.json();assert.equal(configured.actionAck.status,'applied');assert.deepEqual(configured.rules,afterRules);assert.equal(configured.ruleRevision,3);assert.equal(JSON.stringify(configured.result),oldBill);configured=await call(rulesA,lostRulesBody);assert.equal(configured.ruleRevision,3);assert.deepEqual(configured.history[0].bill.result.delta,oldDelta);assert.deepEqual(configured.history[0].bill.result.rules,customRules);
+configured=await call(rulesA,{action:'ready',code:configured.code});configured=await call(rulesB,{action:'ready',code:configured.code});configured=await call(rulesA,{action:'start',code:configured.code});assert.deepEqual(configured.roundRules,afterRules);assert.equal(configured.roundRuleRevision,3);assert.deepEqual(configured.history[0].bill.result.rules,customRules);
 console.log('PASS: real SQLite host-only configurable rules, shared refresh, invalid input/active-round rejection, same-ID replay/conflict, custom actual settlement, lost-response confirmation and unchanged historical rule snapshot.');
 
 // Host succession is random among remaining humans, never a bot; receipts
