@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { CHAT_EMOJIS, AVATARS, setRoomRules, terminateRound, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
+import { CHAT_EMOJIS, AVATARS, setRoomRules, nextBotName, terminateRound, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
 export const dynamic='force-dynamic';
 import {interactionKind,validRoomCode as valid,roomCode} from '@/lib/interaction';
 class RequestError extends Error {constructor(message:string,public status=400,public code='ACTION_REJECTED'){super(message)}}
@@ -118,7 +118,7 @@ export async function POST(req:Request){try{
     log(r,`${name}离开牌桌`);if(r.host===id){const humans=r.players.filter(p=>!p.bot),next=humans[Math.floor(Math.random()*humans.length)];r.host=next?.id??'';if(next)log(r,`${next.name}成为新房主`)}left=true;
    }else if(b.action==='fill'||b.action==='removeBots'){
     if(r.host!==id)throw new Error('只有房主可以调整电脑');if(!['lobby','done'].includes(r.phase))throw new Error('本局结束后才能调整座位');
-    if(b.action==='fill'){while(r.players.length<4){const n=r.players.length;r.players.push(player('bot:'+crypto.randomUUID(),['黔灵阿青','花溪小北','南明阿川'][n-1]??'电脑牌友',true))}log(r,'空位已用电脑补齐')}
+    if(b.action==='fill'){while(r.players.length<4){r.players.push(player('bot:'+crypto.randomUUID(),nextBotName(r.players),true))}log(r,'空位已用电脑补齐')}
     else{r.players=r.players.filter(p=>!p.bot);r.phase='lobby';r.result=null;r.dealer=Math.min(r.dealer,r.players.length-1)}
    }else if(b.action==='ready'){if(!['lobby','done'].includes(r.phase))throw new Error('请等待本局结束');r.players[i].managed=false;r.players[i].ready=!r.players[i].ready}
    else if(b.action==='start'){if(r.host!==id)throw new Error('只有房主可以开局');if(!['lobby','done'].includes(r.phase))throw new Error('本局尚未结束');r.dealer=Math.max(0,Math.min(r.dealer,r.players.length-1));start(r,now)}

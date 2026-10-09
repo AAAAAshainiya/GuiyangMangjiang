@@ -224,3 +224,8 @@ for(const phase of ['play','claim']){
  const result=await Promise.all([response(people[0],{action:'terminate',code:key,round:host.round,version:host.version,clientId:crypto.randomUUID()}),response(people[1],{action:'hu',code:key,version:winning.version,context:winning.actionContext,clientId:crypto.randomUUID()})]);assert.equal(result.filter(x=>x.status===200).length,1);const final=get(key);assert.equal(final.history.length,1);assert.equal(final.phase,'done');assert.equal(final.result.delta.reduce((a,b)=>a+b),0);
 }
 console.log('PASS: v25 actual SQLite host authority, play/claim termination with zero chicken/beans/hu, hidden hands and immutable bills, termination/hu race, kick timing/self/target validation, same-ID and competing kick safety, kicked GET/POST and rejoin, other-seat synchronization and subsequent round preservation.');
+
+{const host=await guest();let room=await call(host,{action:'create',name:'黔灵阿青'});
+ room=await call(host,{action:'fill',code:room.code,version:room.version,clientId:crypto.randomUUID()});assert.equal(new Set(room.players.map(p=>p.name)).size,4);assert.equal(new Set(room.players.filter(p=>p.bot).map(p=>p.name)).size,3);
+ for(let n=0;n<5;n++){room=await call(host,{action:'kick',code:room.code,tile:1,version:room.version,round:room.round,clientId:crypto.randomUUID()});const kept=room.players.map(p=>p.name);room=await call(host,{action:'fill',code:room.code,version:room.version,clientId:crypto.randomUUID()});assert.equal(new Set(room.players.map(p=>p.name)).size,4);assert(kept.every(name=>room.players.some(p=>p.name===name)));}
+ console.log('PASS: v27 actual SQLite fill avoids existing human/bot names, repeated kick/refill stays unique and does not rename existing seats.');}

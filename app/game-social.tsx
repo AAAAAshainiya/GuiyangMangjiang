@@ -53,7 +53,8 @@ const signed=(n:number)=>(n>0?'+':'')+n;
 const moneyClass=(n:number)=>n>0?'money-in':n<0?'money-out':'money-zero';
 export function SettlementHeadline({room}:{room:any}){
  const r=room.result,me=room.me,net=r.winner<0?0:r.delta[me];
- return <section className={'settlement-headline '+moneyClass(net)} aria-label="我的本局实际盈亏"><span>你的本局实际盈亏</span><strong>{r.winner<0?(r.terminated?'房主终止 · 0 分':'流局 · 0 分'):net>0?`赚了 ${net} 分`:net<0?`亏了 ${-net} 分`:'收支持平 · 0 分'}</strong><div className="net-parts">{[['胡',r.hu?.[me]],['豆',r.beans?.[me]],['鸡',r.chicken?.[me]]].map(([label,n])=><span key={label as string}>{label}净额 <b className={moneyClass(Number(n??0))}>{signed(Number(n??0))}</b></span>)}</div></section>;
+ const ledger=settlementLedger(room);
+ return <section className={'settlement-headline '+moneyClass(net)} aria-label="我的本局实际盈亏"><span>你的本局实际盈亏</span><strong>{r.winner<0?(r.terminated?'房主终止 · 0 分':'流局 · 0 分'):net>0?`赚了 ${net} 分`:net<0?`亏了 ${-net} 分`:'收支持平 · 0 分'}</strong>{ledger.complete?<div className="gross-totals"><span>收到合计 <b className="money-in">{ledger.received} 分</b></span><span>扣分合计 <b className="money-out">{ledger.paid} 分</b></span></div>:<p className="detail-note">旧账单未记录完整收付合计，实际盈亏仍按原结果显示。</p>}<div className="net-parts">{[['胡',r.hu?.[me]],['豆',r.beans?.[me]],['鸡',r.chicken?.[me]]].map(([label,n])=><span key={label as string}>{label}净额 <b className={moneyClass(Number(n??0))}>{signed(Number(n??0))}</b></span>)}</div></section>;
 }
 function DetailTile({tile}:{tile:number|null}){return <span className={'settlement-tile '+(tile===null?'concealed-detail':'')} aria-label={tile===null?'暗杠牌背':tileName(tile)}>{tile===null?<span>◆</span>:<img src={`/tiles/${tile}.webp`} alt={tileName(tile)} draggable={false}/>}</span>}
 function huWith(result:any,me:number,other:number){
@@ -62,6 +63,27 @@ function huWith(result:any,me:number,other:number){
  if(me===result.winner)return result.from<0||result.from===other?n:0;
  if(other===result.winner)return result.from<0||result.from===me?-n:0;
  return 0;
+}
+export function settlementLedger(room:any){
+ const r=room.result,me=room.me,items:{from:number,to:number,points:number,reason:string}[]=[];
+ const add=(from:number,to:number,points:number,reason:string)=>{if(points>0&&(from===me||to===me))items.push({from,to,points,reason})};
+ if(r.winner>=0){
+  const total=r.huPayable??Math.abs(r.hu?.[r.winner]??0)/(r.from<0?3:1),hot=r.hotPenalty??0;
+  for(let i=0;i<room.players.length;i++)if(i!==r.winner&&(r.from<0||r.from===i)){add(i,r.winner,total-hot,r.from<0?'支付自摸胡分':r.kind==='抢杠胡'?'支付抢杠胡分':'放炮支付胡分');add(i,r.winner,hot,'热炮额外扣分')}
+  if(r.beanAuditComplete&&Array.isArray(r.beanAudit)){for(const e of r.beanAudit)if(e.status==='counted')for(const payer of e.payers)add(payer,e.seat,e.unit,'支付'+({ming:'明杠',an:'暗杠',bu:'补杠'} as Record<string,string>)[e.type]+'豆分')}
+  else for(const t of r.beanTransfers??[])add(t.from,t.to,t.points,'支付有效杠豆');
+  for(let i=0;i<room.players.length;i++)if(i!==me){
+   const mine=Number(r.values?.[me]??0),other=Number(r.values?.[i]??0),modern=r.scoringVersion===3,mineEligible=!modern||!!r.eligible?.[me],otherEligible=!modern||!!r.eligible?.[i];
+   if(mineEligible){add(i,me,Math.max(0,mine),'支付你的有效鸡分');add(i,me,Math.max(0,-other),'对方未听牌弃鸡赔分')}
+   if(otherEligible){add(me,i,Math.max(0,other),'支付对方的有效鸡分');add(me,i,Math.max(0,-mine),'自己未听牌弃鸡扣分')}
+  }
+ }
+ const received=items.filter(t=>t.to===me).reduce((n,t)=>n+t.points,0),paid=items.filter(t=>t.from===me).reduce((n,t)=>n+t.points,0);
+ return {items,received,paid,complete:(r.winner<0||Array.isArray(r.beanTransfers))&&received-paid===r.delta?.[me]};
+}
+export function DeductionSummary({room}:{room:any}){
+ const ledger=settlementLedger(room),rows=ledger.items.filter(t=>t.from===room.me);
+ return <section className="deduction-summary bill-section"><h3>本局扣分明细{ledger.complete&&<b className="money-out">合计 {ledger.paid} 分</b>}</h3><p className="detail-note">每笔扣分就是付给对应牌友的分数，不另扣一次。收到与扣分按各项抵扣前列出，两者相减才是实际盈亏。</p>{rows.length?<div className="bill-table-scroll"><table className="deduction-table"><thead><tr><th>扣分原因</th><th>付给谁</th><th>扣多少</th></tr></thead><tbody>{rows.map((t,i)=><tr key={i}><td>{t.reason}</td><td>{room.players[t.to]?.name}</td><td className="money-out">−{t.points} 分</td></tr>)}</tbody></table></div>:<p>{ledger.complete?'本局没有扣分。':'已记录项目中没有扣分；较早豆分来源缺失，不推测未记录的扣分。'}</p>}{ledger.complete&&<p className="net-equation">收到 {ledger.received} − 扣分 {ledger.paid} ＝ 实际 <b>{signed(room.result.delta[room.me])} 分</b></p>}</section>;
 }
 export function SettlementDetails({room,defaultOpen=false}:{room:any,defaultOpen?:boolean}){
  const r=room.result,me=room.me,details=r.myChickenDetails,cfg=r.rules??defaultRules();
@@ -91,6 +113,7 @@ export function SettlementDetails({room,defaultOpen=false}:{room:any,defaultOpen
   lines.push(`鸡分抵扣：收到 ${incoming} − 付出 ${outgoing} ＝ ${signed(incoming-outgoing)} 分。`);return lines;
  };
  return <details className="settlement-details" open={defaultOpen}><summary>查看我的收付明细</summary><div className="settlement-body">
+ <DeductionSummary room={room}/>
  <p>{r.rules&&<>本局使用第 {r.ruleRevision??1} 版规则。 </>}{r.winner<0?(r.terminated?'房主终止，本局所有收付为 0；保留此前累计积分。':'流局，本局所有收付为 0。'):burned?'你放了热炮：自己的手牌、碰杠、弃牌鸡和豆全部烧掉，不收分，也不为自己的弃牌鸡倒付；仍须支付其他有资格玩家的鸡豆。':eligible?'你已胡牌或听牌：手牌、碰杠和自己弃牌区的鸡都计分。':modern?(r.flipPenaltyOnlyFixed?'你未听牌：只有自己打出的固定鸡或重合翻鸡需要赔有收分资格者；只算翻鸡的弃牌不加分、不扣分。持有鸡和自己的豆不计分，仍付他人的有效鸡豆。':'你未听牌：自己的弃牌鸡只向胡牌或听牌且未放热炮的人付分，不收其他人的弃牌鸡罚分；手牌及碰杠里的鸡不罚分。'):'你未听牌：只为自己弃牌区的鸡付分，手牌及碰杠里的鸡不罚分。'}{r.winner>=0&&r.beanRequiresReady&&!burned&&(eligible?'你的杠计豆，仍需支付其他胡牌或听牌者的豆分。':'你自己的杠不计豆，但仍需支付胡牌或听牌者的豆分。')}</p>
  <section className="bill-section"><h3>① 胡牌分怎么收付 <b className={moneyClass(r.hu?.[me]??0)}>{signed(r.hu?.[me]??0)}</b></h3>
  {r.winner<0?<p>没有人胡牌，胡分为 0。</p>:<><p>{name(r.winner)}{r.kind}。{r.huParts?.length>0?r.huParts.map((p:any)=>`${p.name} ${p.points}`).join(' ＋ '):r.pattern} ＝ {r.huValues?.[r.winner]??Math.abs(huWith(r,r.winner,r.from<0?(r.winner+1)%4:r.from))} 分。</p>{r.hotPenalty>0&&<p className="hot-bill">牌型 {r.huValues[r.winner]} ＋ 热炮额外 {r.hotPenalty} ＝ {r.huPayable} 分，由{name(r.from)}支付；放炮者自己的鸡豆烧掉。</p>}<p>{r.from<0?`自摸：${room.players.map((_:any,i:number)=>i).filter((i:number)=>i!==r.winner).map(name).join('、')}各付 ${r.huPayable??r.huValues?.[r.winner]??Math.abs(r.hu[r.winner])/3} 分。`:`只有${name(r.from)}付胡分，另外两家不付这一项。`}</p><ul className="hu-transfer-list">{rows.map((row:any)=><li key={row.i}><span>{row.hu>0?`${row.name}给你`:row.hu<0?`你给${row.name}`:`你与${row.name}无胡分收付`}</span><b className={moneyClass(row.hu)}>{signed(row.hu)} 分</b></li>)}</ul></>}
@@ -110,14 +133,14 @@ export function SettlementDetails({room,defaultOpen=false}:{room:any,defaultOpen
 }
 function BillTile({t,back}:{t:number,back?:boolean}){return <DetailTile tile={back||t<0?null:t}/>}
 export function Showdown({room,Tile=BillTile}:{room:any,Tile?:any}){return <section className="showdown"><h3>胡牌 / 听牌亮牌</h3>{room.players.map((p:any,i:number)=>p.revealed&&<div className="showdown-player" key={i}><label>{p.name}<b>{room.result.winner===i?'胡牌':'听牌'}</b></label><div className="showdown-tiles">{p.melds.map((m:any,j:number)=><span className="showdown-meld" key={j}>{Array.from({length:m.k==='gang'?4:3},(_,k)=><Tile t={m.t} small back={!!m.hidden||m.t<0} key={k}/>)}</span>)}{p.hand.map((t:number,j:number)=><Tile t={t} small key={j}/>)}</div>{room.result.waitTiles?.[i]?.length>0&&<small>听 {room.result.waitTiles[i].map(tileName).join('、')}</small>}</div>)}</section>}
-export function RoundEnd({room,Tile,nextRound,stage='summary',onOpenChange}:{room:any,Tile:any,nextRound?:any,stage?:EndStage,onOpenChange?:(open:boolean)=>void}){
+export function RoundEnd({room,Tile,nextRound,tutorialGuide,stage='summary',onOpenChange}:{room:any,Tile:any,nextRound?:any,tutorialGuide?:any,stage?:EndStage,onOpenChange?:(open:boolean)=>void}){
  const [closed,setClosed]=useState(false);
  const changeOpen=(open:boolean)=>{setClosed(!open);onOpenChange?.(open)};
  const win=room.result.winner>=0?winnerText(room):null;
  const singleAction=room.solo||(room.local&&room.lesson?.settlementStep>=4);
  const nextPanel=nextRound&&<section className={'round-next-panel'+(singleAction?' round-next-panel-single':'')} aria-label="下一局操作">{nextRound}</section>;
- if(closed)return <div className="round-end round-end-closed"><div className="round-end-stack"><button className="reopen-summary" onClick={()=>changeOpen(true)}>查看本局结算</button>{nextPanel}</div></div>;
+ if(closed)return <div className="round-end round-end-closed"><div className="round-end-stack">{tutorialGuide}<button className="reopen-summary" onClick={()=>changeOpen(true)}>查看本局结算</button>{nextPanel}</div></div>;
  return <div className="round-end" role="region" aria-label={stage==='winner'?'本局胡牌提示':stage==='flip'?'本局翻鸡':'本局积分结算'}>
- {stage==='winner'?<div className="winner-announcement" role="status"><span className="end-kicker">本局胡牌</span><h2>{win?.title}</h2><p>{win?.detail}</p><strong>{win?.pattern}</strong><small>{room.result.flip!==null?'接下来翻鸡':'接下来结算'}</small></div>:stage==='flip'?<div className="flip-animation" role="status"><span className="end-kicker">本局翻鸡</span><div className="flip-scene"><div className="flip-card"><div className="flip-back"><Tile t={0} back/></div><div className="flip-face"><Tile t={room.result.flip}/></div></div><ChevronRight size={24}/><div className="rooster-card"><Tile t={room.result.rooster}/></div></div><p>翻出 {tileName(room.result.flip)} · {tileName(room.result.rooster)}为本局鸡</p></div>:<div className="round-end-stack"><div className="central-summary"><div className="central-summary-heading"><div><span className="end-kicker">本局积分结算</span><h2>{room.result.winner<0?(room.result.terminated?'房主已终止本局 · 不加分、不扣分':'流局 · 不加分、不扣分'):room.players[room.result.winner].name+'胡了'}</h2></div><button onClick={()=>changeOpen(false)} aria-label="收起结算总览"><X size={20}/></button></div><p className="end-pattern">{room.result.pattern} {room.result.kind}</p><ScoreOverview room={room}/><SettlementDetails room={room} defaultOpen/><Showdown room={room} Tile={Tile}/>{room.result.flip!==null&&<p className="summary-chicken">翻 {tileName(room.result.flip)} · 本局鸡 {tileName(room.result.rooster)}</p>}<button className="summary-dismiss" onClick={()=>changeOpen(false)}>收起总览，查看牌面</button></div>{nextPanel}</div>}
+ {stage==='winner'?<div className="winner-announcement" role="status"><span className="end-kicker">本局胡牌</span><h2>{win?.title}</h2><p>{win?.detail}</p><strong>{win?.pattern}</strong><small>{room.result.flip!==null?'接下来翻鸡':'接下来结算'}</small></div>:stage==='flip'?<div className="flip-animation" role="status"><span className="end-kicker">本局翻鸡</span><div className="flip-scene"><div className="flip-card"><div className="flip-back"><Tile t={0} back/></div><div className="flip-face"><Tile t={room.result.flip}/></div></div><ChevronRight size={24}/><div className="rooster-card"><Tile t={room.result.rooster}/></div></div><p>翻出 {tileName(room.result.flip)} · {tileName(room.result.rooster)}为本局鸡</p></div>:<div className="round-end-stack"><div className={'central-summary'+(tutorialGuide?' guided-summary lesson-settlement-step-'+room.lesson.settlementStep:'')}><div className="central-summary-heading"><div><span className="end-kicker">本局积分结算</span><h2>{room.result.winner<0?(room.result.terminated?'房主已终止本局 · 不加分、不扣分':'流局 · 不加分、不扣分'):room.players[room.result.winner].name+'胡了'}</h2></div><button onClick={()=>changeOpen(false)} aria-label="收起结算总览"><X size={20}/></button></div><p className="end-pattern">{room.result.pattern} {room.result.kind}</p>{tutorialGuide}<ScoreOverview room={room}/><SettlementDetails room={room} defaultOpen/><Showdown room={room} Tile={Tile}/>{room.result.flip!==null&&<p className="summary-chicken">翻 {tileName(room.result.flip)} · 本局鸡 {tileName(room.result.rooster)}</p>}<button className="summary-dismiss" onClick={()=>changeOpen(false)}>收起总览，查看牌面</button></div>{nextPanel}</div>}
  </div>;
 }

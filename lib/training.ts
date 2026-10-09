@@ -1,4 +1,4 @@
-import {act,create,player,start,view,options,suggest,waits,tileName,isChicken,activeRules,setRoomRules,type Room} from './game';
+import {nextBotName,act,create,player,start,view,options,suggest,waits,tileName,isChicken,activeRules,setRoomRules,type Room} from './game';
 export const LESSON_STEPS=[
  {title:'你的手牌与新摸的牌',target:'hand',text:'万、筒、条各有 1—9，每种四张，共 108 张。手牌在桌子下方，右上角红点只标记新摸的那一张。先认识牌面，再选择要打的牌。'},
  {title:'组成顺子、刻子和对子',target:'hand',text:'同花色连续三张是顺子，三张相同是刻子，两张相同是对子。普通胡牌需要四组加一对，七对则是七个对子。本桌不能吃别人的弃牌，但自己手里的牌可以组成顺子。'},
@@ -20,9 +20,10 @@ export function discardPreview(r:Room,t:number){const p=r.players[0],hand=[...p.
 }
 export type Explanation={title:string,lines:string[]};
 export class TrainingGame{
+ lastAction:{seat:number,action:string,phase:string}|null=null;
  room:Room;intro=0;gate=true;settlementStep=0;explanation:Explanation={title:'欢迎来到新手练习',lines:['你和三个人机一起练习，所有动作都由你按步骤推进。']};
- constructor(name='新手牌友',avatar='🐼'){this.room=create('LEARN','learner',name);this.room.players[0].avatar=avatar;this.room.players.push(...['黔灵阿青','花溪小北','南明阿川'].map((n,i)=>player('bot:teacher'+i,n,true)));this.room.players[0].ready=true;start(this.room,Date.now());this.room.version=0;this.room.playVersion=0}
- snapshot(){const v=view(this.room,'learner');return {...v,local:true,deadline:Number.MAX_SAFE_INTEGER,options:this.intro<LESSON_STEPS.length||this.gate?[]:v.options,messages:[],interactions:[],lesson:{intro:this.intro,gate:this.gate,settlementStep:this.settlementStep,explanation:this.explanation}}}
+ constructor(name='新手牌友',avatar='🐼'){this.room=create('LEARN','learner',name);this.room.players[0].avatar=avatar;for(let i=0;i<3;i++)this.room.players.push(player('bot:teacher'+i,nextBotName(this.room.players),true));this.room.players[0].ready=true;start(this.room,Date.now());this.room.version=0;this.room.playVersion=0}
+ snapshot(){const v=view(this.room,'learner');return {...v,local:true,deadline:Number.MAX_SAFE_INTEGER,options:this.intro<LESSON_STEPS.length||this.gate?[]:v.options,messages:[],interactions:[],lesson:{intro:this.intro,gate:this.gate,settlementStep:this.settlementStep,explanation:this.explanation,lastAction:this.lastAction}}}
  bump(){this.room.version=(this.room.version??0)+1;this.room.playVersion=this.room.version}
  needsHuman(){return this.room.phase==='play'&&this.room.turn===0||this.room.phase==='claim'&&options(this.room,0).length>0}
  next(){if(this.intro<LESSON_STEPS.length){this.intro++;this.gate=this.intro<LESSON_STEPS.length;this.bump();return}
@@ -38,10 +39,10 @@ export class TrainingGame{
   else{lines.push(r.drawn===null?'你刚碰牌，必须打出一张，此时不能算自摸。':`你新摸到 ${tileName(r.drawn)}，红点标记了它。`);lines.push(`建议先查看 ${tileName(suggest(p))}，点击手牌可看打出后的影响。`);for(const a of options(r,0))if(a.startsWith('gang:'))lines.push(`暗杠 ${tileName(Number(a.split(':')[1]))}：你有四张相同牌，杠后补摸，有资格时三家各付豆 ${activeRules(r).an} 分。`);else if(a.startsWith('bu:'))lines.push(`补杠 ${tileName(Number(a.split(':')[1]))}：把之前的碰补成四张，可能被抢杠胡，成功后补摸。`);else if(a==='hu')lines.push('自摸：新摸牌后已经形成胡牌。三家各付相同的牌型胡分。')}
   if(waits(p).length)lines.push(`当前听 ${waits(p).map(tileName).join('、')}。听牌资格在最终结算时重新判断。`);return lines;
  }
- human(action:string,tile?:number,rules?:unknown){if(action==='rules'){setRoomRules(this.room,0,rules);this.bump();return}if(action==='ready'||action==='start'){if(this.room.phase!=='done'||this.settlementStep<4)throw new Error('先完成四步结算讲解，再练下一局');this.room.players[0].ready=true;start(this.room,Date.now());this.gate=true;this.settlementStep=0;this.explanation={title:'新一局已发牌',lines:['练习累计积分保留。读完说明后点继续，再开始选择。']};this.bump();return}
+ human(action:string,tile?:number,rules?:unknown){if(action==='rules'){setRoomRules(this.room,0,rules);this.bump();return}if(action==='ready'||action==='start'){if(this.room.phase!=='done'||this.settlementStep<4)throw new Error('先完成四步结算讲解，再练下一局');this.room.players[0].ready=true;start(this.room,Date.now());this.gate=true;this.settlementStep=0;this.lastAction=null;this.explanation={title:'新一局已发牌',lines:['练习累计积分保留。读完说明后点继续，再开始选择。']};this.bump();return}
   if(this.intro<LESSON_STEPS.length||this.gate)throw new Error('先读完说明，点击继续');if(!this.needsHuman())throw new Error('先点击继续，查看人机动作');this.perform(0,action,tile);this.gate=true;
  }
- private perform(seat:number,a:string,t?:number){const r=this.room,phase=r.phase,name=r.players[seat].name,claimed=r.claim?.t,drawBefore=r.drawn;act(r,seat,a,t,Date.now());const lines:string[]=[];
+ private perform(seat:number,a:string,t?:number){const r=this.room,phase=r.phase,name=r.players[seat].name,claimed=r.claim?.t,drawBefore=r.drawn;act(r,seat,a,t,Date.now());this.lastAction={seat,action:a,phase};const lines:string[]=[];
   if(a==='discard'){lines.push(`${name}打出了 ${tileName(t!)}，牌放在自己的正前方。`);if(isChicken(t!,activeRules(r)))lines.push(`这是固定鸡；该牌种第一次打出是冲锋鸡，横放并按 ${activeRules(r).charge} 分基数记录，最终按听牌与热炮资格结算。`);if(seat===0){const ready=waits(r.players[0]);lines.push(ready.length?`你现在听 ${ready.map(tileName).join('、')}。`:'你现在还未听牌，下一次继续整理组合。')}}
   else if(a==='pass')lines.push(`${name}放弃了这次响应。`);
   else if(a==='peng')lines.push(`${name}选择碰 ${tileName(claimed!)}；其余响应结束后，胡牌仍有优先权。碰牌成功后必须出一张。`);
@@ -52,6 +53,6 @@ export class TrainingGame{
   if(r.phase==='done'){this.settlementStep=0;lines.push('本局结束。先看翻鸡和账单，再按四步学习胡、豆、鸡与实际盈亏。')}
   else lines.push('读完后点继续。下一次需要你选择时，按钮和手牌会解锁。');this.explanation={title:seat===0?'你的操作已完成':name+'刚刚行动',lines};this.bump();
  }
- serialize(){return JSON.stringify({room:this.room,intro:this.intro,gate:this.gate,settlementStep:this.settlementStep,explanation:this.explanation})}
- static restore(value:string|null){try{const v=JSON.parse(value??'null'),r=v?.room;if(r?.code!=='LEARN'||r.host!=='learner'||r.players?.length!==4||r.players[0].id!=='learner'||r.players.slice(1).some((p:any)=>!p.bot)||!['play','claim','done'].includes(r.phase)||!Array.isArray(r.wall)||r.wall.length>108||r.players.some((p:any)=>!Array.isArray(p.hand)||p.hand.length>14||p.hand.some((t:any)=>!Number.isInteger(t)||t<0||t>26)))return null;const game=Object.create(TrainingGame.prototype) as TrainingGame;game.room=r;game.intro=Math.max(0,Math.min(LESSON_STEPS.length,Number(v.intro)||0));game.gate=!!v.gate;game.settlementStep=Math.max(0,Math.min(4,Number(v.settlementStep)||0));game.explanation=v.explanation?.lines?v.explanation:{title:'练习已恢复',lines:['点击继续，从上次的位置继续学习。']};return game}catch{return null}}
+ serialize(){return JSON.stringify({room:this.room,intro:this.intro,gate:this.gate,settlementStep:this.settlementStep,explanation:this.explanation,lastAction:this.lastAction})}
+ static restore(value:string|null){try{const v=JSON.parse(value??'null'),r=v?.room;if(r?.code!=='LEARN'||r.host!=='learner'||r.players?.length!==4||r.players[0].id!=='learner'||r.players.slice(1).some((p:any)=>!p.bot)||!['play','claim','done'].includes(r.phase)||!Array.isArray(r.wall)||r.wall.length>108||r.players.some((p:any)=>!Array.isArray(p.hand)||p.hand.length>14||p.hand.some((t:any)=>!Number.isInteger(t)||t<0||t>26)))return null;const game=Object.create(TrainingGame.prototype) as TrainingGame;game.room=r;game.lastAction=v.lastAction&&Number.isInteger(v.lastAction.seat)&&v.lastAction.seat>=0&&v.lastAction.seat<4&&['discard','peng','gang','bu','hu','pass'].includes(v.lastAction.action)?{seat:v.lastAction.seat,action:v.lastAction.action,phase:v.lastAction.phase}:null;game.intro=Math.max(0,Math.min(LESSON_STEPS.length,Number(v.intro)||0));game.gate=!!v.gate;game.settlementStep=Math.max(0,Math.min(4,Number(v.settlementStep)||0));game.explanation=v.explanation?.lines?v.explanation:{title:'练习已恢复',lines:['点击继续，从上次的位置继续学习。']};return game}catch{return null}}
 }

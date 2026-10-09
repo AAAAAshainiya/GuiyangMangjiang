@@ -1,4 +1,4 @@
-import {act,advance,create,setRoomRules,player,start,view,type Room} from './game';
+import {nextBotName,act,advance,create,setRoomRules,player,start,view,type Room} from './game';
 export const SOLO_IDLE_MS=60000;
 
 // All game state and its clock stay in this browser, never in an online room.
@@ -7,7 +7,7 @@ export class SoloGame{
  constructor(name='单人牌友',avatar='🐼',now=Date.now(),fast=false){
   this.lastActivityAt=now;
   this.room=create('SOLO','solo',name);this.room.fast=fast;this.room.players[0].avatar=avatar;
-  this.room.players.push(...['黔灵阿青','花溪小北','南明阿川'].map((n,i)=>player('bot:solo'+i,n,true)));
+  for(let i=0;i<3;i++)this.room.players.push(player('bot:solo'+i,nextBotName(this.room.players),true));
   this.room.players[0].ready=true;start(this.room,now);this.room.version=0;this.room.playVersion=0;
  }
  bump(){this.room.version=(this.room.version??0)+1;this.room.playVersion=this.room.version}

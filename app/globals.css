@@ -441,3 +441,23 @@ button.avatar:disabled{opacity:1;cursor:default}
 @media(max-width:400px){.brand{flex-basis:150px;max-width:150px}}
 
 .host-dialog{z-index:71!important;max-width:min(420px,calc(100vw - 24px))!important;max-height:calc(100dvh - 24px);overflow-y:auto}.host-dialog-overlay{z-index:70!important}.host-management{display:grid;gap:12px}.host-danger{background:#9b3d32!important;color:#fff!important}.host-seat-list{display:grid;gap:8px}.host-seat-list>div{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}.host-seat-list>div>span{min-width:0;overflow-wrap:anywhere}.host-seat-list button{flex-shrink:0;min-height:40px}
+
+/* Credits stay in their own table rail, never above cards or dialogs. */
+.table-shell{position:relative}
+.table-signature{flex:0 0 auto;text-align:right;padding:4px 12px 1px;min-height:22px;color:#d3c286;font-size:12px;line-height:17px;opacity:.72;pointer-events:none;overflow-wrap:anywhere}
+.author-signature{display:block;margin-top:8px;color:#6d7a6d;font-size:14px}
+footer{display:flex;flex-direction:column;align-items:center;text-align:center}
+.gross-totals{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;font-size:15px}.gross-totals>span{display:flex;gap:8px;align-items:center}
+.deduction-table{width:100%;border-collapse:collapse;font-size:14px}.deduction-table th,.deduction-table td{padding:9px 8px;border-bottom:1px solid #e0e6d8;text-align:left;overflow-wrap:anywhere}.deduction-table th:last-child,.deduction-table td:last-child{text-align:right;white-space:nowrap}.deduction-summary h3{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+/* The coach occupies a rail; transparent markers only outline the real target. */
+.coach-markers{position:absolute;inset:0;width:100%;height:100%;z-index:12;pointer-events:none;overflow:hidden}
+.coach-markers rect,.coach-markers path{fill:none;stroke:#ffe3a0;stroke-width:2}
+.coach-rail{flex:0 0 auto;position:relative;z-index:13;display:flex;gap:12px;align-items:flex-start;margin:4px;padding:10px 12px;border:1px solid #d4bd78;border-radius:10px;background:#f9f5dc;color:#334d37;max-height:190px;overflow-y:auto;overscroll-behavior:contain;min-width:0}
+.coach-copy{flex:1;min-width:0}.coach-copy h2{font-size:16px;line-height:1.5;margin:0 0 4px}.coach-copy p{font-size:14px;line-height:1.6;margin:3px 0;overflow-wrap:anywhere}.coach-copy summary{font-size:14px;padding:4px 0;cursor:pointer}
+.coach-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px;max-width:160px}.coach-controls button{min-height:38px;font-size:14px}.coach-controls>span{font-size:14px}.coach-controls>button:last-child{color:#586441}
+.tutorial-access{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.tutorial-access a{font-size:14px;color:#5c7055}
+.tutorial-dialog{max-height:calc(100dvh - 24px);overflow-y:auto;width:min(620px,calc(100vw - 24px))!important}.tutorial-dialog .tutorial-card{margin:0}
+.tutorial-inline{padding:10px!important;margin:8px 0!important;border-radius:10px!important;max-height:180px;overflow-y:auto}.tutorial-inline .section-kicker{display:none}.tutorial-inline h2{font-size:16px!important;margin:0 0 4px!important}.tutorial-inline p{font-size:14px!important;line-height:1.6!important;margin:4px 0!important}.tutorial-inline .tutorial-controls{margin:6px 0 0!important}.tutorial-inline .tutorial-controls>button{min-height:36px!important;font-size:14px!important}
+.lesson-settlement-step-0 .hu-breakdown,.lesson-settlement-step-0 .hu-transfer-list,.lesson-settlement-step-1 .bean-event-list,.lesson-settlement-step-2 .chicken-detail-list,.lesson-settlement-step-3 .settlement-headline,.lesson-settlement-step-3 .deduction-summary{outline:2px solid #b89a48;outline-offset:2px;border-radius:5px}
+@media(max-width:900px),(max-width:1024px) and (max-height:600px){.coach-rail{max-height:140px;padding:8px;gap:8px}.coach-controls{max-width:112px}.table-signature{padding-right:6px}.tutorial-inline{max-height:150px}}
+@media(max-width:1024px) and (max-height:500px){.coach-rail{max-height:100px}.tutorial-inline{max-height:100px}}

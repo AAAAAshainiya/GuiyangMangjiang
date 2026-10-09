@@ -23,11 +23,11 @@ const room={code:'ABCD',phase:'lobby',isHost:true,rules:game.defaultRules(),rule
 const props={room,busy:false,onSave:async r=>{room.rules=r}};
 function render(){cursor=0;pending=[];const t=rules.RulesPublicPanel(props);pending.forEach(fn=>fn());return t}
 let tree=render(),html=renderToStaticMarkup(tree);
-assert.equal((html.match(/<button/g)||[]).length,2);assert.match(html,/查看扣分规则/);assert.match(html,/修改扣分规则/);assert.doesNotMatch(html,/<table|固定鸡牌种|第 3 版/);
-nodes(tree).find(n=>n.props?.children==='查看扣分规则').props.onClick();tree=render();html=renderToStaticMarkup(tree);assert.equal((html.match(/<table/g)||[]).length,6);assert.match(html,/第 3 版/);assert.match(html,/每张赔 7 分/);
+assert.equal((html.match(/<button/g)||[]).length,2);assert.match(html,/查看积分规则/);assert.match(html,/修改积分规则/);assert.doesNotMatch(html,/<table|固定鸡牌种|第 3 版/);
+nodes(tree).find(n=>n.props?.children==='查看积分规则').props.onClick();tree=render();html=renderToStaticMarkup(tree);assert.equal((html.match(/<table/g)||[]).length,6);assert.match(html,/第 3 版/);assert.match(html,/每张赔 7 分/);
 nodes(tree).find(n=>n.props?.open===true&&n.props?.onOpenChange).props.onOpenChange(false);tree=render();assert.doesNotMatch(renderToStaticMarkup(tree),/<table/);
-nodes(tree).find(n=>n.props?.children==='修改扣分规则').props.onClick();tree=render();assert(nodes(tree).some(n=>n.type===rules.RuleEditor));assert.match(renderToStaticMarkup(tree),/保存，下一局生效/);
+nodes(tree).find(n=>n.props?.children==='修改积分规则').props.onClick();tree=render();assert(nodes(tree).some(n=>n.type===rules.RuleEditor));assert.match(renderToStaticMarkup(tree),/保存，下一局生效/);
 nodes(tree).find(n=>n.type===rules.RuleEditor).props.onCancel();tree=render();assert.equal((renderToStaticMarkup(tree).match(/<button/g)||[]).length,2);
-for(const changed of [{isHost:false,phase:'lobby'},{isHost:true,phase:'play'},{isHost:true,phase:'done'}]){Object.assign(room,changed);props.settled=changed.phase!=='done';tree=render();assert(nodes(tree).find(n=>n.props?.children==='修改扣分规则').props.disabled);assert(!nodes(tree).find(n=>n.props?.children==='查看扣分规则').props.disabled)}
-room.phase='done';props.settled=true;tree=render();assert.equal(nodes(tree).find(n=>n.props?.children==='修改扣分规则').props.disabled,false);props.busy=true;tree=render();assert(nodes(tree).find(n=>n.props?.children==='修改扣分规则').props.disabled);
+for(const changed of [{isHost:false,phase:'lobby'},{isHost:true,phase:'play'},{isHost:true,phase:'done'}]){Object.assign(room,changed);props.settled=changed.phase!=='done';tree=render();assert(nodes(tree).find(n=>n.props?.children==='修改积分规则').props.disabled);assert(!nodes(tree).find(n=>n.props?.children==='查看积分规则').props.disabled)}
+room.phase='done';props.settled=true;tree=render();assert.equal(nodes(tree).find(n=>n.props?.children==='修改积分规则').props.disabled,false);props.busy=true;tree=render();assert(nodes(tree).find(n=>n.props?.children==='修改积分规则').props.disabled);
 console.log('PASS: default panel has exactly two buttons, view opens six current-rule tables and closes, host editor opens/cancels, active/guest/busy permissions preserved.');
