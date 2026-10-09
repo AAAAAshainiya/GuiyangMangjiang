@@ -16,7 +16,7 @@ export function GameEntry({name,avatar,code,tab,busy,initialized,profileLoaded,o
  onName:(v:string)=>void;onAvatar:(v:string)=>void;onCode:(v:string)=>void;onTab:(v:string)=>void;
  onOnline:(action:string)=>void;onLocal:(mode:'solo'|'learn',fast:boolean)=>void;
 }){
- const [mode,setMode]=useState<Mode|null>(null),[avatarsOpen,setAvatarsOpen]=useState(false),[fast,setFast]=useState(false);
+ const [mode,setMode]=useState<Mode|null>(null),[avatarsOpen,setAvatarsOpen]=useState(false);
  // Invitation links open multiplayer joining, while ordinary visits choose a mode first.
  useEffect(()=>{if(tab==='join'&&code)setMode('multi')},[tab,code]);
  const identityReady=profileLoaded&&!!name.trim(),onlineReady=identityReady&&initialized&&!busy;
@@ -34,7 +34,7 @@ export function GameEntry({name,avatar,code,tab,busy,initialized,profileLoaded,o
    {tab==='join'&&<><label className="field-label" htmlFor="roomcode">邀请码</label><input id="roomcode" value={code} onChange={e=>onCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g,''))} disabled={busy} placeholder="4 位邀请码" maxLength={8}/></>}
    <Button className="primary-button full" disabled={!onlineReady||tab==='join'&&!validRoomCode(code)} onClick={()=>onOnline(tab==='join'?'join':'create')}>{busy?'正在入座…':tab==='join'?'加入房间':'创建房间'}</Button>
   </div>}
-  {mode==='solo'&&<div className="mode-options" aria-label="单人模式操作"><div className="entry-route-picker" role="group" aria-label="人机出牌速度"><button type="button" aria-pressed={!fast} onClick={()=>setFast(false)}>普通 · 2 秒</button><button type="button" aria-pressed={fast} onClick={()=>setFast(true)}>快速 · 0.5 秒</button></div><Button className="primary-button full" disabled={!identityReady||busy} onClick={()=>onLocal('solo',fast)}>开始游戏</Button></div>}
+  {mode==='solo'&&<div className="mode-options" aria-label="单人模式操作"><Button className="primary-button full" disabled={!identityReady||busy} onClick={()=>onLocal('solo',false)}>开始游戏</Button></div>}
   {mode==='learn'&&<div className="mode-options" aria-label="新手模式操作"><Button className="primary-button full" disabled={!identityReady||busy} onClick={()=>onLocal('learn',false)}>开始教学</Button></div>}
  </section>
 }

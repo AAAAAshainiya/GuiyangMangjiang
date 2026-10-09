@@ -7,7 +7,7 @@ let slots=[],cursor=0;
 const hooks={useState(value){const i=cursor++;if(!(i in slots))slots[i]=value;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v]}};
 const Button=()=>null,dialog=Object.fromEntries(['Dialog','DialogContent','DialogHeader','DialogTitle','DialogDescription'].map(n=>[n,()=>null]));
 const mod=obj=>new vm.SyntheticModule(Object.keys(obj),function(){for(const k of Object.keys(obj))this.setExport(k,obj[k])});
-const imports={'react':hooks,'react/jsx-runtime':jsx,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog};
+const imports={'lucide-react':{Bot:()=>null},'react':hooks,'react/jsx-runtime':jsx,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog};
 const source=ts.transpileModule(fs.readFileSync('app/game-host.tsx','utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const m=new vm.SourceTextModule(source);await m.link(n=>mod(imports[n]));await m.evaluate();
 const nodes=t=>!t||typeof t!=='object'?[]:Array.isArray(t)?t.flatMap(nodes):[t,...nodes(t.props?.children)];

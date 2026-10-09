@@ -37,6 +37,6 @@ const dialog=Object.fromEntries(['Dialog','DialogContent','DialogHeader','Dialog
 const ui=await load('app/game-versions.tsx',{'react':React,'react/jsx-runtime':jsx,'@/components/ui/dialog':dialog,'@/lib/release-config':releaseConfig,'@/lib/release-history':history});
 assert.equal(ui.beijingTime(row.deployedAt),'2026-10-10 00:04:05');
 const html=renderToStaticMarkup(React.createElement(ui.VersionTable,{records:data.records}));assert.match(html,/2026-10-10 00:04:05/);assert.match(html,/aaaaaaaa/);assert.match(html,/成功部署记录时间（北京时间）/);assert.doesNotMatch(html,/发布记录更新中/);
-const pending=renderToStaticMarkup(React.createElement(ui.VersionTable,{records:history.RELEASE_HISTORY}));assert.match(pending,/发布记录更新中/);assert.match(pending,/v30/);assert.match(pending,/6c0bc547/);
-const footer=renderToStaticMarkup(React.createElement(ui.VersionHistory));assert.match(footer,/当前版本：v30/);assert.match(footer,/版本历史修改/);
+const pending=renderToStaticMarkup(React.createElement(ui.VersionTable,{records:history.RELEASE_HISTORY}));assert.match(pending,/发布记录更新中/);assert.match(pending,new RegExp('v'+config.CURRENT_VERSION));assert.match(pending,/6c0bc547/);
+const footer=renderToStaticMarkup(React.createElement(ui.VersionHistory));assert.match(footer,new RegExp('当前版本：v'+config.CURRENT_VERSION));assert.match(footer,/版本历史修改/);
 console.log('PASS: actual release API + SQLite migrations, signed publication, tamper rejection, retries, conflict protection, read failure, exact Beijing time conversion and 30-row table rendering.');
