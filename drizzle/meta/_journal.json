@@ -15,6 +15,13 @@
       "when": 1791459206791,
       "tag": "0001_public_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791559889169,
+      "tag": "0002_parallel_amphibian",
+      "breakpoints": true
     }
   ]
 }

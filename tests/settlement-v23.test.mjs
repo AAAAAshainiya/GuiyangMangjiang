@@ -24,6 +24,12 @@ const Tile=({t,back})=>React.createElement('span',null,back?'牌背':game.tileNa
 function next(room,busy=false,onAction=()=>{}){return progress.NextRound({room,busy,onAction})}
 function button(tree){return tree.props.children.find(c=>c?.type===Button)}
 function settlement(room){
+ const flip=renderToStaticMarkup(React.createElement(social.ScoreOverview,{room}));
+ assert.match(flip,/本局翻鸡/);
+ if(room.result.winner<0)assert.match(flip,/本局不翻鸡/);
+ else if(room.result.flip!=null){assert(flip.includes(game.tileName(room.result.flip)));assert(flip.includes(game.tileName(room.result.rooster)));}
+ for(const record of room.history??[])if(record.bill){const html=renderToStaticMarkup(React.createElement(social.ScoreOverview,{room:record.bill}));assert.match(html,/本局翻鸡/);}
+
  for(const stage of ['winner','flip','summary']){
   if(stage==='winner'&&room.result.winner<0||stage==='flip'&&room.result.flip===null)continue;
   const html=renderToStaticMarkup(React.createElement(social.RoundEnd,{room,Tile,stage,nextRound:React.createElement(progress.NextRound,{room,busy:false,onAction:()=>{}})}));assert(html.length>0);

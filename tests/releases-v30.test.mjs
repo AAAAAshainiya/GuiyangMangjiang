@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {DatabaseSync} from 'node:sqlite';
+import ts from 'typescript';
+import * as React from 'react';
+import * as jsx from 'react/jsx-runtime';
+import {renderToStaticMarkup} from 'react-dom/server';
+import * as releaseConfig from '../lib/release-config.ts';
+import * as history from '../lib/release-history.ts';
+const sqlite=new DatabaseSync(':memory:');for(const file of fs.readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort())sqlite.exec(fs.readFileSync('drizzle/'+file,'utf8'));
+let unavailable=false;
+const DB={prepare(sql){if(unavailable)throw new Error('offline');return{bind(...args){const s=sqlite.prepare(sql);return{async first(){return s.get(...args)??null},async all(){return{results:s.all(...args)}},async run(){const r=s.run(...args);return{meta:{changes:r.changes}}}}}}}};
+const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+const config={...releaseConfig,RELEASE_PUBLIC_KEY:await crypto.subtle.exportKey('jwk',pair.publicKey)};
+function synthetic(obj){return new vm.SyntheticModule(Object.keys(obj),function(){for(const k of Object.keys(obj))this.setExport(k,obj[k])})}
+async function load(file,imports){const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod=new vm.SourceTextModule(code);await mod.link(n=>{assert(imports[n],n);return synthetic(imports[n])});await mod.evaluate();return mod.namespace}
+const api=await load('app/api/releases/route.ts',{'@/db':{db:()=>DB},'@/lib/release-config':config,'@/lib/release-history':history});
+const row={version:config.CURRENT_VERSION,deployedAt:'2026-10-09T16:04:05.000Z',commit:'a'.repeat(40)};
+async function signed(record){const signature=Buffer.from(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(JSON.stringify([record.version,record.deployedAt,record.commit])))).toString('base64');return {...record,signature}}
+const send=body=>api.POST(new Request('https://example.test/api/releases',{method:'POST',body:JSON.stringify(body)}));
+let response=await api.GET(),data=await response.json();assert.equal(data.records.length,29);assert.equal(data.currentVersion,config.CURRENT_VERSION);assert.equal(data.records.at(-1).commit,'4437baee');
+const request=await signed(row);
+assert.equal((await send({...request,commit:'b'.repeat(40)})).status,403);
+assert.equal((await send({...request,version:config.CURRENT_VERSION+1})).status,400);
+assert.equal((await send({...request,signature:undefined})).status,400);
+assert.equal((await send({...request,deployedAt:'invalid'})).status,400);
+assert.equal(sqlite.prepare('SELECT count(*) AS n FROM mahjong_releases').get().n,0);
+assert.equal((await send(request)).status,200);assert.equal((await send(request)).status,200);
+assert.equal(sqlite.prepare('SELECT count(*) AS n FROM mahjong_releases').get().n,1);
+assert.equal((await send(await signed({...row,commit:'c'.repeat(40)}))).status,409);
+response=await api.GET();data=await response.json();assert.equal(data.records.length,30);assert.equal(data.records.at(-1).activity,config.CURRENT_ACTIVITY);assert.equal(data.records.at(-1).commit,row.commit);assert.equal(response.headers.get('Cache-Control'),'no-store');
+const foreign=new Request('https://example.test/api/releases',{method:'POST',headers:{origin:'https://elsewhere.test'},body:JSON.stringify(request)});assert.equal((await api.POST(foreign)).status,403);
+assert.equal((await api.POST(new Request('https://example.test/api/releases',{method:'POST',body:'a'.repeat(2049)}))).status,413);
+unavailable=true;assert.equal((await api.GET()).status,503);unavailable=false;
+const dialog=Object.fromEntries(['Dialog','DialogContent','DialogHeader','DialogTitle','DialogDescription'].map(n=>[n,({children,open})=>n==='Dialog'&&!open?null:React.createElement('div',null,children)]));
+const ui=await load('app/game-versions.tsx',{'react':React,'react/jsx-runtime':jsx,'@/components/ui/dialog':dialog,'@/lib/release-config':releaseConfig,'@/lib/release-history':history});
+assert.equal(ui.beijingTime(row.deployedAt),'2026-10-10 00:04:05');
+const html=renderToStaticMarkup(React.createElement(ui.VersionTable,{records:data.records}));assert.match(html,/2026-10-10 00:04:05/);assert.match(html,/aaaaaaaa/);assert.match(html,/成功部署记录时间（北京时间）/);assert.doesNotMatch(html,/发布记录更新中/);
+const pending=renderToStaticMarkup(React.createElement(ui.VersionTable,{records:history.RELEASE_HISTORY}));assert.match(pending,/发布记录更新中/);assert.match(pending,/v30/);assert.match(pending,/6c0bc547/);
+const footer=renderToStaticMarkup(React.createElement(ui.VersionHistory));assert.match(footer,/当前版本：v30/);assert.match(footer,/版本历史修改/);
+console.log('PASS: actual release API + SQLite migrations, signed publication, tamper rejection, retries, conflict protection, read failure, exact Beijing time conversion and 30-row table rendering.');
