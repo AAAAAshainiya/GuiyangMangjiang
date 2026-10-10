@@ -1,4 +1,4 @@
 // Release signing keys: public only; private key stays in release session memory.
-export const CURRENT_VERSION = 36;
-export const CURRENT_ACTIVITY = "单人入口区分进入牌桌与开始游戏";
-export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"Z3UZP__5nhnHRgQva4HjTZEXNSOciCAZNhO7AZeb_WA","y":"8-1TbqptslqVbLSo47lB_T3P3cu1-_iMC5sGPK5_hQE","crv":"P-256"};
+export const CURRENT_VERSION = 37;
+export const CURRENT_ACTIVITY = "单人随时重开、任意阶段快速切换与按钮文字对比修复";
+export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"yYM9xq6kGZ7V1nM0pMYJA6kqVdUGHUIdZg-PKkZdVGk","y":"bBpwKdi4ZOU93NWC4stV0a3CIJ8SHugDlF3rzN_-YkQ","crv":"P-256"};

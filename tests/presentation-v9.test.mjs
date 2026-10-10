@@ -1,5 +1,6 @@
 import {loader} from './account-v32-loader.mjs';
 const avatarModule=await loader()('app/game-avatar.tsx'),tileModule=await loader()('app/game-tiles.tsx');
+let immersiveFixture=false;
 let accountFixture={user:null,ready:true,saveRules:async()=>{},error:'',refresh:async()=>null};
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -23,7 +24,7 @@ const context=vm.createContext({Date,URL,crypto,AbortController,location:{origin
 function RulesPublicPanel(){return null}function RuleTables(){return null}
 const selection=await loadLocalLibrary('lib/selection.ts');
 const ledgerModule=await loader()('lib/settlement-ledger.ts');
-const imports={'@/lib/settlement-ledger':ledgerModule,'./game-tiles':tileModule,'./game-avatar':avatarModule,'./account-context':{useAccount:()=>accountFixture,accountRequest:async()=>({saved:true})},'./account-control':{AccountControl:()=>null,openAccount:()=>{}},'@/lib/account-outbox':{queueLocalRound:async()=>{},pendingLocalRounds:async()=>[],completeLocalRound:async()=>{}},'@/lib/selection':selection,'./game-coach':{TableCoach:()=>null},'./game-host':{HostControls:()=>null},'./game-versions':{VersionHistory:()=>null},'./game-entry':{GameEntry:()=>null},'./game-rules':{RulesPublicPanel,RuleTables},'@/lib/solo':solo,'@/lib/table-events':tableEvents,'./game-experience':{useImmersive:()=>({immersive:false,toggle:async()=>{}}),useRoundPresentation:()=> 'summary',TableEventNotice:()=>null,SoloPanel:()=>null},'@/lib/training':training,'@/lib/profile':profile,'./game-progress':{AvatarPicker:()=>null,NextRound:()=>null,HistoryPanel:()=>null,RecoveryBanner:()=>null,TutorialPanel:()=>null},'react':hooks,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/interaction':interactions,'@/lib/table-client':{TableActionCoordinator,TableRequestError,tableRequest:(...args)=>transport(...args),TablePoller:class{constructor(read,apply){this.read=read;this.apply=apply}async poll(){this.apply(await this.read(new AbortController().signal))}stop(){}}},'./game-audio':{SoundToggle:()=>null,useTableSound:()=>({enabled:false,toggle:async()=>{}})},'./game-interactions':{InteractionLayer:()=>null},'./game-actions':{TableActions:()=>null},'./game-social':{ChatPanel,ChatBubble:()=>null,RoundEnd:()=>null,ScoreOverview:()=>null,SettlementDetails:()=>null},'@/components/ui/button':{Button:stub('button')},'@/components/ui/dialog':Object.fromEntries(['Dialog','DialogContent','DialogHeader','DialogTitle','DialogDescription'].map(n=>[n,()=>null])),'@/components/ui/tabs':Object.fromEntries(['Tabs','TabsContent','TabsList','TabsTrigger'].map(n=>[n,stub('div')])),'@/components/ui/switch':{Switch:stub('input')}};
+const imports={'@/lib/settlement-ledger':ledgerModule,'./game-tiles':tileModule,'./game-avatar':avatarModule,'./account-context':{useAccount:()=>accountFixture,accountRequest:async()=>({saved:true})},'./account-control':{AccountControl:()=>null,openAccount:()=>{}},'@/lib/account-outbox':{queueLocalRound:async()=>{},pendingLocalRounds:async()=>[],completeLocalRound:async()=>{}},'@/lib/selection':selection,'./game-coach':{TableCoach:()=>null},'./game-host':{HostControls:()=>null},'./game-versions':{VersionHistory:()=>null},'./game-entry':{GameEntry:()=>null},'./game-rules':{RulesPublicPanel,RuleTables},'@/lib/solo':solo,'@/lib/table-events':tableEvents,'./game-experience':{useImmersive:()=>({immersive:immersiveFixture,toggle:async()=>{}}),useRoundPresentation:()=> 'summary',TableEventNotice:()=>null,SoloPanel:()=>null},'@/lib/training':training,'@/lib/profile':profile,'./game-progress':{AvatarPicker:()=>null,NextRound:()=>null,HistoryPanel:()=>null,RecoveryBanner:()=>null,TutorialPanel:()=>null},'react':hooks,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/interaction':interactions,'@/lib/table-client':{TableActionCoordinator,TableRequestError,tableRequest:(...args)=>transport(...args),TablePoller:class{constructor(read,apply){this.read=read;this.apply=apply}async poll(){this.apply(await this.read(new AbortController().signal))}stop(){}}},'./game-audio':{SoundToggle:()=>null,useTableSound:()=>({enabled:false,toggle:async()=>{}})},'./game-interactions':{InteractionLayer:()=>null},'./game-actions':{TableActions:()=>null},'./game-social':{ChatPanel,ChatBubble:()=>null,RoundEnd:()=>null,ScoreOverview:()=>null,SettlementDetails:()=>null},'@/components/ui/button':{Button:stub('button')},'@/components/ui/dialog':Object.fromEntries(['Dialog','DialogContent','DialogHeader','DialogTitle','DialogDescription'].map(n=>[n,()=>null])),'@/components/ui/tabs':Object.fromEntries(['Tabs','TabsContent','TabsList','TabsTrigger'].map(n=>[n,stub('div')])),'@/components/ui/switch':{Switch:stub('input')}};
 const modules={};for(const [name,obj]of Object.entries(imports))modules[name]=new vm.SyntheticModule(Object.keys(obj),function(){for(const key of Object.keys(obj))this.setExport(key,obj[key])},{context});
 const code=ts.transpileModule(fs.readFileSync('app/page.tsx','utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const m=new vm.SourceTextModule(code,{context});await m.link(name=>modules[name]);await m.evaluate();
@@ -83,7 +84,7 @@ slots=[];slots[0]=null;effects.length=0;onlineCalls=0;render({solo:true});effect
 assert.equal(slots[0].solo,true);assert.equal(onlineCalls,0);
 let soloNodes=nodes(render({solo:true}));assert(!soloNodes.some(n=>n.type===ChatPanel));assert(!soloNodes.some(n=>n.props?.['aria-label']==='复制邀请码'));
 const soloControls=soloNodes.find(n=>n.props?.onAction&&n.props?.onRules);assert(soloControls);
-assert.equal(slots[0].phase,'lobby');assert.equal(slots[0].round,0);assert(slots[0].players.every(p=>p.count===0));
+assert.equal(slots[0].phase,'lobby');assert.equal(slots[0].round,0);assert(slots[0].players.every(p=>p.count===0));assert(!soloNodes.some(n=>n.props?.['aria-label']==='重新开始牌局'));
 const beginSolo=soloNodes.find(n=>n.props?.className==='primary-button solo-start-button');assert(beginSolo);beginSolo.props.onClick();await new Promise(setImmediate);assert.equal(slots[0].phase,'play');assert.equal(slots[0].round,1);
 soloControls.props.onAction('pause');await new Promise(setImmediate);assert.equal(slots[0].paused,true);
 assert.match(renderToStaticMarkup(render({solo:true})),/牌局已暂停/);soloNodes=nodes(render({solo:true}));assert(soloNodes.filter(n=>n.props?.onClick&&n.props?.t!==undefined).every(n=>n.props.disabled));
@@ -96,6 +97,23 @@ idleTree.props.onPointerDownCapture();assert.equal(singleGame.pausedAt!==null,tr
 soloControls.props.onAction('continue');await new Promise(setImmediate);assert.equal(singleGame.pausedAt,null);
 singleGame.lastActivityAt=Date.now()-59000;render({solo:true}).props.onKeyDownCapture();assert(singleGame.lastActivityAt>Date.now()-1000);assert.equal(slots[0].idleDeadline,singleGame.lastActivityAt+60000);assert.equal(onlineCalls,0);
 console.log('PASS: actual Home idle-pause notice and manual lock, clicks never unpause, keyboard activity refreshes the idle clock and continue resumes without HTTP.');
+
+// v37: actual toolbar callback restarts locally, clears selection and stays available full screen.
+for(const fullscreen of [false,true]){
+ immersiveFixture=fullscreen;singleGame.room.phase='play';singleGame.room.turn=0;singleGame.room.claim=null;soloControls.props.onAction('continue');await new Promise(setImmediate);
+ nodes(render({solo:true})).find(n=>n.props?.onClick&&n.props?.t!==undefined).props.onClick();assert(nodes(render({solo:true})).some(n=>n.props?.selected));
+ singleGame.room.phase='claim';singleGame.room.claim={from:1,t:0,rob:false,choices:{0:['peng']},answers:{}};singleGame.pause();
+ soloControls.props.onAction('pause');await new Promise(setImmediate);
+ const oldDeal=singleGame.room.roundId,oldRound=singleGame.room.round;
+ const current=nodes(render({solo:true})),restart=current.find(n=>n.props?.['aria-label']==='重新开始牌局');assert(restart);assert(!restart.props.disabled);
+ if(fullscreen){const speedToggle=current.find(n=>n.props?.['aria-label']==='全屏单人快速模式');assert(speedToggle);assert(!speedToggle.props.disabled);speedToggle.props.onCheckedChange(true);await new Promise(setImmediate);assert.equal(singleGame.room.fast,true);assert(singleGame.pausedAt!==null)}
+ restart.props.onClick();await new Promise(setImmediate);assert.notEqual(singleGame.room.roundId,oldDeal);assert.equal(singleGame.room.round,oldRound);assert.equal(singleGame.room.history.length,0);assert.equal(singleGame.pausedAt,null);assert.equal(slots[0].phase,'play');assert.equal(slots[0].completedRounds,0);assert(!nodes(render({solo:true})).some(n=>n.props?.selected));assert.equal(onlineCalls,0);
+}
+immersiveFixture=false;slots[0]=null;
+assert(!nodes(render({training:true})).some(n=>n.props?.['aria-label']==='重新开始牌局'));
+assert(!nodes(render()).some(n=>n.props?.['aria-label']==='重新开始牌局'));
+console.log('PASS v37: actual normal/fullscreen single-player restart callback, paused claim speed switch, fresh deal, no abandoned history, cleared selection, zero HTTP and other-mode isolation.');
+
 
 // The real Home keeps wait hints after removal and gates avatar interactions.
 slots=[];effects.length=0;

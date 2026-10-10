@@ -614,3 +614,15 @@ html[data-mj-theme]:not([data-mj-theme=jade]) :is(.table-top .fullscreen-button,
 body:has([data-slot="dialog-overlay"][data-state="open"]) .table-shell,
 body:has([data-slot="dialog-overlay"][data-state="open"]) .table-shell *{pointer-events:none!important}
 .solo-start-button{display:block;margin:18px auto 0;min-height:46px;padding:0 28px;font-size:17px;font-weight:700;pointer-events:auto}
+
+/* v37: repair control text only; keep every existing button surface and hover effect. */
+html[data-mj-theme] :is(.text-button,.leave-button,.summary-dismiss,.history-row button,.version-footer button,.version-error button,.header-button,[data-variant=link],[data-slot=dialog-close],.interaction-cancel,.account-tabs button,.interaction-target-prompt button,.chat-panel-heading>button,.central-summary-heading>button){color:var(--mj-control-text)!important}
+html[data-mj-theme] :is(.text-button,.leave-button,.summary-dismiss,.history-row button,.version-footer button,.version-error button,.header-button,[data-variant=link],.interaction-cancel):hover:not(:disabled){color:var(--mj-ink)!important}
+html[data-mj-theme] .account-tabs button[aria-pressed=true]{color:var(--mj-ink)!important}
+html[data-mj-theme=jade] .primary-button.discard{color:var(--mj-button-text)!important}
+html[data-mj-theme=jade] :is(.chat-quick button,.entry-route-picker button,.rule-tile-picker>button>span:last-child){color:var(--mj-control-text)!important}
+html[data-mj-theme=jade] .entry-route-picker button[aria-pressed=true]{color:var(--mj-ink)!important}
+html[data-mj-theme] .table-top .replay-fullscreen{color:var(--mj-ink)!important}
+html[data-mj-theme] .table-top .sound-toggle[aria-pressed=false]:not(:disabled){color:var(--mj-chrome-control-text)!important}
+html[data-mj-theme] .table-top .sound-toggle[aria-pressed=true]:not(:disabled){color:#fff!important}
+html[data-mj-theme] .hand-area .hint-button{color:var(--mj-table-text)!important}

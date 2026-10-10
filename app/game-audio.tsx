@@ -14,7 +14,7 @@ export function useTableSound(room:any,now:number,onError:(message:string)=>void
  const getAudio=()=>audio.current??(audio.current=new MahjongAudio(()=>{
   const Context=window.AudioContext||(window as any).webkitAudioContext;if(!Context)throw new Error('当前浏览器暂不支持音效');return new Context();
  }));
- useEffect(()=>{audio.current?.stop()},[room?.code,room?.round,room?.paused]);
+ useEffect(()=>{audio.current?.stop()},[room?.code,room?.round,room?.roundId,room?.paused]);
  useEffect(()=>{
   const cues=tracker.current.observe(room,now,enabledRef.current&&!room?.paused&&document.visibilityState==='visible',since.current);
   for(const cue of cues){try{audio.current?.play(cue.kind,cue.delayMs)}catch{}}

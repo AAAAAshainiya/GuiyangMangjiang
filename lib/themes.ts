@@ -6,7 +6,7 @@ export const THEMES=[
  {id:'rose',name:'玫瑰灰',description:'奶茶与灰玫瑰 · 柔雾玫瑰按钮',page:'#F1E5D1',card:'#fffaf3',ink:'#443134',muted:'#765457',border:'#DBB5B5',felt:'#C39898',light:'#DBB5B5',dark:'#765457',hand:'#DBB5B5',tableText:'#382529',tableMuted:'#503237',accent:'#DBB5B5'},
  {id:'sakura',name:'樱花粉',description:'樱花与暖白 · 同色淡粉按钮',page:'#F9F5F6',card:'#fffcfd',ink:'#57333f',muted:'#7c5262',border:'#FDCEDF',felt:'#F2BED1',light:'#F8E8EE',dark:'#d79bb1',hand:'#F8E8EE',tableText:'#482835',tableMuted:'#68414f',accent:'#F2BED1'},
  {id:'peach',name:'奶油蜜桃',description:'奶油与蜜桃 · 轻柔蜜桃按钮',page:'#FFF5E4',card:'#fffdf6',ink:'#56342e',muted:'#82554d',border:'#FFD1D1',felt:'#FF9494',light:'#FFE3E1',dark:'#d37878',hand:'#FFE3E1',tableText:'#482727',tableMuted:'#633939',accent:'#FF9494'},
-].map(t=>({...t,buttonText:({rose:'#382529',sakura:'#482835',peach:'#482727'} as Record<string,string>)[t.id]??'#ffffff',chromeText:({rose:'#ffffff',sakura:'#482835',peach:'#482727'} as Record<string,string>)[t.id]??'#ffffff',disabled:'#e3e7ec',disabledText:'#53616e',texture:({
+].map(t=>({...t,controlText:({jade:'#526858',midnight:'#46657b'} as Record<string,string>)[t.id]??t.muted,chromeControlText:({sakura:'#482835',peach:'#35201f'} as Record<string,string>)[t.id]??'#ffffff',buttonText:({rose:'#382529',sakura:'#482835',peach:'#482727'} as Record<string,string>)[t.id]??'#ffffff',chromeText:({rose:'#ffffff',sakura:'#482835',peach:'#482727'} as Record<string,string>)[t.id]??'#ffffff',disabled:'#e3e7ec',disabledText:'#53616e',texture:({
  jade:'none',
  midnight:'none',
  grape:'repeating-linear-gradient(45deg,#ffffff07 0 1px,transparent 1px 9px)',
@@ -14,7 +14,7 @@ export const THEMES=[
  rose:'none',
  sakura:'none',
  peach:'repeating-linear-gradient(15deg,#ffffff12 0 1px,transparent 1px 6px)',
- } as Record<string,string>)[t.id]})) as readonly {id:'jade'|'midnight'|'grape'|'walnut'|'rose'|'sakura'|'peach',name:string,description:string,page:string,card:string,ink:string,muted:string,border:string,felt:string,light:string,dark:string,hand:string,tableText:string,tableMuted:string,accent:string,buttonText:string,chromeText:string,disabled:string,disabledText:string,texture:string}[];
+ } as Record<string,string>)[t.id]})) as readonly {id:'jade'|'midnight'|'grape'|'walnut'|'rose'|'sakura'|'peach',name:string,description:string,page:string,card:string,ink:string,muted:string,border:string,felt:string,light:string,dark:string,hand:string,tableText:string,tableMuted:string,accent:string,buttonText:string,controlText:string,chromeText:string,chromeControlText:string,disabled:string,disabledText:string,texture:string}[];
 export type ThemeId=typeof THEMES[number]['id'];
 export function validTheme(value:unknown):value is ThemeId{return THEMES.some(t=>t.id===value)}
 // The server's first HTML and client previews use the same complete variables.
