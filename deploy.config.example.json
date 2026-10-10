@@ -1,0 +1,7 @@
+{
+  "workerName": "guiyang-mahjong",
+  "accountId": "YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "databaseName": "guiyang-mahjong-db",
+  "databaseId": "00000000-0000-4000-8000-000000000000",
+  "bucketName": "guiyang-mahjong-avatars"
+}

@@ -1,0 +1,288 @@
+{
+  "sourceVersion": 42,
+  "sourceCommit": "eb6fc2e5cdedc9564de3c8b4f3eee0f310de0cbe",
+  "initialAllTests": {
+    "passed": 34,
+    "failed": 11,
+    "total": 45
+  },
+  "latestTests": {
+    "passed": 36,
+    "failed": 9,
+    "total": 45
+  },
+  "currentTestCommand": "npm test",
+  "currentTestCount": 36,
+  "results": [
+    {
+      "test": "account-controls-v34.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "account-ui-v32.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "account-v32.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "actions-v6.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "audio-control-v8.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "beans-ready-v7.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "chicken-scoring.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "controls-v37.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "entry-v21.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v13.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v14.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v15.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v18.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "features-v27.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "passed",
+      "note": "交接副本补齐新增互动组件映射，专项复查通过"
+    },
+    {
+      "test": "features-v28.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "passed",
+      "note": "交接副本补齐新增互动组件映射，专项复查通过"
+    },
+    {
+      "test": "features-v33.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v34.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v35.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v37.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v38.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v39.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "features-v40.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "game.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "host-v25.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "network-interactions-v9.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "network-v12.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "password-worker-v32.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "presentation-v13.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "presentation-v14.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "presentation-v17.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "presentation-v19.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "presentation-v20.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "presentation-v5.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "presentation-v6.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "presentation-v9.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "releases-v30.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "requested-rules.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "rules-v17.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "scoring-v10.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "scoring-v5.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "server.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "settlement-v11.test.mjs",
+      "initialResult": "failed",
+      "latestResult": "failed",
+      "note": "历史夹具不兼容，原文件保留且默认入口排除"
+    },
+    {
+      "test": "settlement-v23.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "solo-v26.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    },
+    {
+      "test": "sound-v8.test.mjs",
+      "initialResult": "passed",
+      "latestResult": "passed",
+      "note": ""
+    }
+  ]
+}
