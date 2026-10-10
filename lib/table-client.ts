@@ -42,8 +42,8 @@ export class TableRequestError extends Error{
  constructor(message:string,status:number,data:any){super(message);this.status=status;this.data=data}
 }
 type PendingAction={rules?:unknown,round?:number,action:string,code:string,name?:string,tile?:number,version:number,context?:string,clientId:string,createdAt:number};
-const ROOM_ACTIONS=['rules','speed','profile','resume','leave','fill','removeBots','ready','start','terminate','kick','discard','hu','skipHu','peng','gang','bu','pass'];
-const PLAY_ACTIONS=['discard','hu','skipHu','peng','gang','bu','pass'];
+const ROOM_ACTIONS=['rules','speed','profile','resume','leave','fill','removeBots','ready','start','terminate','kick','discard','hu','skipHu','skipKong','peng','gang','bu','pass'];
+const PLAY_ACTIONS=['discard','hu','skipHu','skipKong','peng','gang','bu','pass'];
 // One logical action retains the same ID through timeout, refresh and retry.
 // A fresh snapshot is always checked before replaying an unacknowledged action.
 export class TableActionCoordinator{

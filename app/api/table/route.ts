@@ -19,7 +19,8 @@ async function visible(r:Room,id:string){
  const rows=await db().prepare('SELECT id, sender, name, kind, content, at FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 140').bind(r.code).all<any>();
  const all=rows.results.reverse(),seat=(m:any)=>r.players.findIndex(p=>p.id===m.sender);
  const interactions=all.filter((m:any)=>m.kind==='interaction').slice(-40).flatMap((m:any)=>{try{const v=JSON.parse(m.content),target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return interactionKind(v.effect)&&Number.isInteger(target)&&target>=0&&target<r.players.length?[{id:m.id,seat:seat(m),name:m.name,effect:v.effect,target,at:m.at}]:[]}catch{return []}});
- return {...view(r,id),messages:all.filter((m:any)=>m.kind!=='interaction').slice(-100).map((m:any)=>({id:m.id,seat:seat(m),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id})),interactions};
+ const participant=r.players.find(p=>p.id===id),round=r.history?.find(h=>h.round===r.round);const accountSaveStatus=participant?.accountId&&r.phase==='done'?(round?.accountArchived?'账单与回放已保存':'账单与回放等待重试保存'):undefined;
+ return {...view(r,id),accountSaveStatus,messages:all.filter((m:any)=>m.kind!=='interaction').slice(-100).map((m:any)=>({id:m.id,seat:seat(m),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id})),interactions};
 }
 async function sendInteraction(r:Room,id:string,b:any,now:number){
  const me=r.players.findIndex(p=>p.id===id&&!p.bot);if(me<0)return reply({error:'请先加入房间'},403);
@@ -40,7 +41,7 @@ async function sendChat(r:Room,id:string,b:any,now:number){
  await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND kind != 'interaction' AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? AND kind != 'interaction' ORDER BY at DESC, id DESC LIMIT 100)").bind(r.code,r.code).run();
  return reply(await visible(r,id));
 }
-const PLAY_ACTIONS=['discard','hu','skipHu','peng','gang','bu','pass'];
+const PLAY_ACTIONS=['discard','hu','skipHu','skipKong','peng','gang','bu','pass'];
 function receipt(r:Room,id:string,clientId:unknown){return r.actionReceipts?.find(a=>a.player===id&&a.id===clientId)}
 function signature(b:any){const fields=[b.action,b.tile??null,b.version??null,b.context??null,b.name??null];if(b.avatar!==undefined)fields.push(b.avatar);if(b.rules!==undefined)fields.push(b.rules);if(b.round!==undefined)fields.push(b.round);return JSON.stringify(fields)}
 function acknowledge(r:Room,id:string,clientId:string){return {clientId,status:receipt(r,id,clientId)?'applied':'not_found'}}

@@ -1,3 +1,4 @@
+import {backupSettings,flushBackups} from '@/lib/account-backup';
 import {env} from 'cloudflare:workers';
 import {db} from '@/db';
 import {requireAccount,checkOrigin,rateLimit,AccountError,accountReply,accountFailure,publicAccount} from '@/lib/account-server';
@@ -15,5 +16,5 @@ export async function POST(req:Request){try{
  const key=crypto.randomUUID()+'.'+ext,path='/api/avatars/'+key;
  await env.BUCKET.put('avatars/'+key,bytes,{httpMetadata:{contentType:mime}});
  try{await db().batch([db().prepare('INSERT INTO mahjong_avatars (key,user_id,created_at) VALUES (?,?,?)').bind(key,user.id,Date.now()),db().prepare('UPDATE mahjong_users SET avatar=?, revision=revision+1 WHERE id=?').bind(path,user.id)])}catch(e){await env.BUCKET.delete('avatars/'+key);throw e}
- return accountReply({user:publicAccount(await db().prepare('SELECT * FROM mahjong_users WHERE id=?').bind(user.id).first())});
+ await backupSettings(user.id);const backup=await flushBackups(user.id);return accountReply({backup,user:publicAccount(await db().prepare('SELECT * FROM mahjong_users WHERE id=?').bind(user.id).first())});
  }catch(e){return accountFailure(e)}}

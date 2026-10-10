@@ -79,9 +79,9 @@ for(let run=0;run<3;run++){
   const restored=training.TrainingGame.restore(t.serialize());assert(restored);settlement(restored.snapshot());
   if(step<4){assert.throws(()=>t.human('ready'),/四步结算讲解/);t.next()}
  }
- const scores=t.room.players.map(p=>p.score);button(next(t.snapshot(),false,a=>t.human(a))).props.onClick();assert.equal(t.room.round,2);assert.deepEqual(t.room.players.map(p=>p.score),scores);
+ const scores=t.room.players.map(p=>p.score);button(next(t.snapshot(),false,a=>t.human(a))).props.onClick();assert.equal(t.room.round,2);assert.deepEqual(t.room.players.map(p=>p.score),[0,0,0,0]);assert.equal(t.room.history.length,0);
 }
-console.log(`PASS: real end-game component rendering and restore for ${soloGames} normal/fast solo games; ${onlineGames} multiplayer games with 1/2/4 humans; 3 tutorial games with all four lesson gates; actual next-round callbacks preserve scores and history.`);
+console.log(`PASS: real end-game component rendering and restore for ${soloGames} normal/fast solo games; ${onlineGames} multiplayer games with 1/2/4 humans; 3 tutorial games with all four lesson gates; actual next-round callbacks preserve solo/multi history and clear tutorial bills.`);
 {
  const r=game.create('STOP','p0','房主');r.players=Array.from({length:4},(_,i)=>({...game.player('p'+i,'牌友'+i),ready:true}));game.start(r,1000);game.terminateRound(r,0,1500);
  for(let i=0;i<4;i++){

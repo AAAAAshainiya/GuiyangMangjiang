@@ -1,3 +1,4 @@
+import {backupSettings,flushBackups} from '@/lib/account-backup';
 import {db} from '@/db';
 import {AVATARS} from '@/lib/game';
 import {defaultRules,validateRules} from '@/lib/rules';
@@ -24,7 +25,7 @@ export async function POST(req:Request){try{
    const hash=await passwordHash(b.password,row?.salt??'mahjong-dummy-salt-for-unknown-account');
    if(!row||!verifyHash(hash,row.password_hash))throw new AccountError('账号或密码不正确',401);
   }
-  return accountReply({user:publicAccount(row)},200,accountCookie(await issueSession(row.id)));
+  return accountReply({user:publicAccount(row)},200,accountCookie(await issueSession(row.id,req,row.salt)));
  }
  if(b.action==='logout'){
   const token=req.headers.get('cookie')?.match(/(?:^|;\s*)mj_account=([a-f0-9]{64})(?:;|$)/)?.[1];if(token)await db().prepare('DELETE FROM mahjong_sessions WHERE token_hash = ?').bind(await digest(token)).run();return accountReply({user:null},200,accountCookie('',0));
@@ -42,5 +43,5 @@ export async function POST(req:Request){try{
   sql='UPDATE mahjong_users SET rules=?, revision=revision+1 WHERE id=? AND revision=?';args=[JSON.stringify(rules),user.id,user.revision];
  }else throw new AccountError('不支持此操作');
  const saved=await db().prepare(sql).bind(...args).run();if(!saved.meta.changes)throw new AccountError('账号设置已在另一处更新，请刷新后重试',409);
- return accountReply({user:publicAccount(await db().prepare('SELECT * FROM mahjong_users WHERE id=?').bind(user.id).first())});
+ await backupSettings(user.id);const backup=await flushBackups(user.id);return accountReply({user:publicAccount(await db().prepare('SELECT * FROM mahjong_users WHERE id=?').bind(user.id).first()),backup});
  }catch(e){return accountFailure(e)}}

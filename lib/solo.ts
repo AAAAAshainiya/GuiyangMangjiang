@@ -5,9 +5,9 @@ export const SOLO_IDLE_MS=60000;
 // All game state and its clock stay in this browser, never in an online room.
 export class SoloGame{
  room:Room;pausedAt:number|null=null;lastActivityAt:number;pauseReason:'manual'|'idle'|'restore'|null=null;
- constructor(name='单人牌友',avatar='🐼',now=Date.now(),fast=false,rules:GameRules=defaultRules(),accountOwner?:string){
+ constructor(name='单人牌友',avatar='🐼',now=Date.now(),fast=false,rules:GameRules=defaultRules(),accountOwner?:string,recordReplay=false){
   this.lastActivityAt=now;
-  this.room=create('SOLO','solo',name);this.room.fast=fast;this.room.players[0].avatar=avatar;this.room.rules=rules;this.room.accountOwner=accountOwner;
+  this.room=create('SOLO','solo',name);this.room.fast=fast;this.room.players[0].avatar=avatar;this.room.rules=rules;this.room.accountOwner=accountOwner;this.room.nextReplayEnabled=recordReplay;
   for(let i=0;i<3;i++)this.room.players.push(player('bot:solo'+i,nextBotName(this.room.players),true));
   this.room.players[0].ready=true;start(this.room,now);this.room.version=0;this.room.playVersion=0;
  }
@@ -24,6 +24,7 @@ export class SoloGame{
  pause(now=Date.now(),reason:'manual'|'idle'='manual'){if(this.pausedAt!==null||!['play','claim'].includes(this.room.phase))return;this.pausedAt=now;this.pauseReason=reason;this.bump()}
  resume(now=Date.now()){if(this.pausedAt===null)return;this.room.deadline+=Math.max(0,now-this.pausedAt);this.pausedAt=null;this.pauseReason=null;this.lastActivityAt=now;this.room.players[0].managed=false;this.bump()}
  human(action:string,tile?:number,now=Date.now(),rules?:unknown){
+  if(action==='recordReplay'){this.room.nextReplayEnabled=tile===1;this.bump();return}
   if(action==='rules'){setRoomRules(this.room,0,rules);this.bump();return}
   if(action==='pause'){this.pause(now);return}if(action==='continue'){this.resume(now);return}
   if(this.pausedAt!==null)throw new Error('牌局已暂停，继续后再操作');

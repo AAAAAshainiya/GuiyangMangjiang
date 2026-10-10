@@ -1,4 +1,4 @@
 // Release signing keys: public only; private key stays in release session memory.
-export const CURRENT_VERSION = 32;
-export const CURRENT_ACTIVITY = "账号资料与个人规则、主题配色、对局记录与收藏回放";
-export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"c5GQxPJPLszLW45eOOSrxyKJV6h0pg0jwEnJzjkYZY4","y":"hZXbw2LYzQyFgnOsFnjrWAylIqAmbarwJAPFUxVN2HM","crv":"P-256"};
+export const CURRENT_VERSION = 33;
+export const CURRENT_ACTIVITY = "账号安全与备份、按模式回放、可选杠及完整主题配色";
+export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"4tLNvVwOpm0a2UbE-lIR0m6JpnwQT-8nNaqVvbYQePI","y":"RWgixTYQkZE2lkc58cj8bEekZax6MuGaoSeuOCfMYsY","crv":"P-256"};

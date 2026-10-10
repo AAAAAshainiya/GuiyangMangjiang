@@ -21,7 +21,7 @@ const DB = {
  }
 };
 DB.batch=async statements=>{const out=[];for(const st of statements)out.push(await st.run());return out};
-const accountLoad=loader({'@/db':{db:()=>DB}});
+const accountLoad=loader({'@/db':{db:()=>DB},'cloudflare:workers':{env:{DB,BUCKET:{put:async()=>({})}}}});
 const accountServer=await accountLoad('lib/account-server.ts'),recordServer=await accountLoad('lib/account-records.ts');
 const accountMod=new vm.SyntheticModule(Object.keys(accountServer),function(){for(const k of Object.keys(accountServer))this.setExport(k,accountServer[k])});
 const recordMod=new vm.SyntheticModule(Object.keys(recordServer),function(){for(const k of Object.keys(recordServer))this.setExport(k,recordServer[k])});
