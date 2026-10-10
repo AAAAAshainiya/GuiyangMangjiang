@@ -1,3 +1,3 @@
 'use client';
-import Home from '../page';
+import Home from '../mahjong-screen';
 export default function SoloPage(){return <Home solo/>}

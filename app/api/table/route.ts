@@ -61,7 +61,7 @@ export async function GET(req:Request){try{
  return reply({error:'牌桌忙碌，正在重新同步',code:'ROOM_BUSY'},409);
  }catch(e){console.error('table GET',e);return reply({error:e instanceof RequestError?e.message:'连接暂时中断，正在重试'},e instanceof RequestError?e.status:500)}}
 export async function POST(req:Request){try{
- const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin)return reply({error:'请求来源不正确'},403);
+ const origin=req.headers.get('origin'),expected=new URL(process.env.MAHJONG_HOSTING==='node'?(process.env.PUBLIC_BASE_URL??process.env.RENDER_EXTERNAL_URL??req.url):req.url).origin;if(origin&&origin!==expected)return reply({error:'请求来源不正确'},403);
  if(Number(req.headers.get('content-length')||0)>4096)return reply({error:'请求过大'},413);
  const account=await getAccount(req),id=account?'account:'+account.id:session(req);if(!id)return reply({error:'请刷新页面后重试'},401);
  let b:any;try{b=await req.json()}catch{throw new RequestError('请求内容不正确')}

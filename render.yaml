@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: guiyang-mahjong
+    runtime: node
+    plan: free
+    buildCommand: npm install --global pnpm@11.25.0 && pnpm install --frozen-lockfile --prod=false && npm run build:node
+    startCommand: npm run start:node
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: NODE_ENV
+        value: production
+      - key: MAHJONG_HOSTING
+        value: node
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false

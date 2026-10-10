@@ -1,5 +1,15 @@
 # 贵阳捉鸡麻将 · v43 完整项目
 
+## 免费部署到 Render + Turso
+
+已加入独立 Node 后端，保留账号、联机、人机、新手教学、聊天、头像、回放、账单和备份。部署不需要 Cloudflare 登录、D1 或 R2。网页使用 Next.js，持久数据使用 Turso（兼容 SQLite），小头像和私人备份也存进数据库。原 Cloudflare 构建命令继续可用。
+
+[部署到 Render](https://render.com/deploy?repo=https://github.com/AAAAAshainiya/GuiyangMangjiang)
+
+先按 [Render 免费部署说明](docs/Render免费部署.md) 创建自己的 Turso 数据库，再打开部署入口并填写两个数据库环境变量。`render.yaml` 默认选择 Free，不创建付费磁盘。免费服务有休眠及额度限制；数据库独立持久保存，不能把免费服务器临时磁盘当数据库。
+
+当前验证：Node 生产构建与类型检查通过；37 项当前测试通过；真实 Node HTTP 验证了网页、注册、登录、房间、聊天、头像、私人备份、重启保留数据和 HTTPS 来源检查。远端 Render/Turso 发布仍需要账号登录和数据库凭据，尚未验证上线。旧版的“未适配 Node”描述属于导出时的原始报告，以本节和新部署文档为准。
+
 这是当前已上线网站的完整源码与可继续开发的交接包。原站：[贵阳捉鸡麻将](https://guiyang-mahjong-table.ashainidwq.chatgpt.site)。代码基线为 `3ccd4b6e990caf927c70f4ed6b75f5f4b7e5299a`（线上成功部署记录时间2026-10-10 22:21:50，北京时间），原 Git main 有 **44 次提交**，不是全新项目。本次先发布v43，修复普通窗口结算时桌面区域塌陷；交接包与该已上线提交逐字节核对，导出阶段没有另改游戏功能。源码和历史的对应关系见 `docs/导出清单.json`。
 
 ## 技术栈与环境

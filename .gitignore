@@ -60,3 +60,5 @@ deploy.config.json
 /.deploy/
 # Test results and database state are regenerated, not source
 /test-results/
+/.next-node/
+/.node-data/
