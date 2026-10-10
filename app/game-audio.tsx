@@ -21,7 +21,9 @@ export function useTableSound(room:any,now:number,onError:(message:string)=>void
  },[room,now,enabled]);
  useEffect(()=>{
   const hidden=()=>{since.current=Date.now();tracker.current.observe(latestRoom.current,Date.now(),false);if(document.visibilityState!=='visible')audio.current?.stop()};document.addEventListener('visibilitychange',hidden);
-  return()=>{document.removeEventListener('visibilitychange',hidden);audio.current?.dispose()};
+  const interaction=(event:Event)=>{if(enabledRef.current&&document.visibilityState==='visible'&&!latestRoom.current?.paused){try{audio.current?.interact((event as CustomEvent).detail?.effect)}catch{}}};
+  window.addEventListener?.('mahjong-interaction',interaction);
+  return()=>{window.removeEventListener?.('mahjong-interaction',interaction);document.removeEventListener('visibilitychange',hidden);audio.current?.dispose()};
  },[]);
  async function toggle(){
   if(busy.current)return;

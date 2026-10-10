@@ -37,3 +37,7 @@ console.log('PASS: actual entry separates all three modes, shares editable ident
 const solo=await loadLocalLibrary('lib/solo.ts');let botStarts=0;
 for(let i=0;i<25;i++){const game=new solo.SoloGame('阿青','🐔',1000,true);assert.equal(game.room.fast,true);if(game.room.turn!==0){botStarts++;assert.equal(game.room.deadline,1500);assert.equal(game.tick(1499),false)}}assert(botStarts>0);
 console.log('PASS: chosen solo fast mode is active before dealing; first computer turn also waits 500 ms.');
+
+// v38: fresh invitation entry only asks for identity, with no mode/code steps.
+slots=[];props.invited=true;props.code='AB23';props.busy=false;props.initialized=true;props.name='邀请朋友';let canceled=0;props.onCancelInvite=()=>canceled++;t=render();html=renderToStaticMarkup(t);assert.match(html,/好友邀请你加入牌桌/);assert.match(html,/AB23/);assert(!nodes(t).some(n=>n.props?.id==='roomcode'||n.props?.className?.startsWith('mode-choice')));click('加入房间');assert.equal(online.at(-1),'join');click('返回模式选择');assert.equal(canceled,1);props.name=' ';assert.equal(nodes(render()).find(n=>n.props?.className==='primary-button full').props.disabled,true);props.invited=false;
+console.log('PASS v38: invited entry bypasses mode and room-code forms, validates nickname and supports cancel.');

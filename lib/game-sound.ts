@@ -1,4 +1,4 @@
-export type SoundKind='draw'|'discard'|'peng'|'gang'|'hu'|'zimo'|'flip'|'settle'|'turn'|'warning';
+export type SoundKind='draw'|'discard'|'peng'|'gang'|'hu'|'zimo'|'flip'|'settle'|'turn'|'warning'|'interaction-pop'|'interaction-water'|'interaction-chirp'|'interaction-spark'|'interaction-tap';
 export type SoundEvent={seq:number,kind:Exclude<SoundKind,'warning'>,seat:number,at:number,delayMs?:number};
 export type SoundCue={kind:SoundKind,delayMs:number};
 
@@ -41,6 +41,10 @@ export class MahjongAudio{
  mute(){this.enabled=false;if(this.context&&this.master)this.master.gain.setValueAtTime(0,this.context.currentTime);this.stop()}
  stop(){for(const source of this.sources){try{source.stop()}catch{}}this.sources.clear()}
  dispose(){this.mute();void this.context?.close().catch(()=>{});this.context=null;this.master=null}
+ interact(effect:string){
+  const cue=({tomato:'interaction-pop',egg:'interaction-pop',water:'interaction-water',hammer:'interaction-tap',flower:'interaction-spark',tea:'interaction-spark',clap:'interaction-tap',chicken:'interaction-chirp',redpacket:'interaction-spark',lucky:'interaction-chirp',flock:'interaction-chirp',inspect:'interaction-pop'} as Record<string,SoundKind>)[effect];
+  if(cue)this.play(cue,950);
+ }
  play(kind:SoundKind,delayMs=0){
   const ac=this.context,master=this.master;if(!this.enabled||!ac||!master||ac.state!=='running')return;
   const base=ac.currentTime+Math.max(0,delayMs)/1000;
@@ -65,6 +69,11 @@ export class MahjongAudio{
   else if(kind==='flip'){click(0,.055,.13,900);click(.13,.07,.06,2200)}
   else if(kind==='settle'){[392,494,587].forEach((hz,i)=>tone(hz,i*.1,.24,.04))}
   else if(kind==='turn'){tone(660,0,.09,.04);tone(880,.12,.12,.035)}
+  else if(kind==='interaction-pop'){tone(210,0,.07,.045,'triangle');click(.03,.09,.05,700)}
+  else if(kind==='interaction-water'){click(0,.22,.04,1100);click(.12,.15,.025,1800)}
+  else if(kind==='interaction-chirp'){[850,1250,1000].forEach((hz,i)=>tone(hz,i*.07,.055,.025,'sine'))}
+  else if(kind==='interaction-spark'){[780,1040,1300].forEach((hz,i)=>tone(hz,i*.08,.14,.02))}
+  else if(kind==='interaction-tap'){click(0,.055,.04,1400);click(.12,.055,.035,1900);click(.24,.055,.03,1700)}
   else if(kind==='warning'){[0,.13,.26].forEach(offset=>tone(740,offset,.065,.035))}
  }
 }

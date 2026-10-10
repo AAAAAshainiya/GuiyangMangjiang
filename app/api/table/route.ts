@@ -18,17 +18,17 @@ async function visible(r:Room,id:string){
 
  const rows=await db().prepare('SELECT id, sender, name, kind, content, at FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 140').bind(r.code).all<any>();
  const all=rows.results.reverse(),seat=(m:any)=>r.players.findIndex(p=>p.id===m.sender);
- const interactions=all.filter((m:any)=>m.kind==='interaction').slice(-40).flatMap((m:any)=>{try{const v=JSON.parse(m.content),target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return interactionKind(v.effect)&&Number.isInteger(target)&&target>=0&&target<r.players.length?[{id:m.id,seat:seat(m),name:m.name,effect:v.effect,target,at:m.at}]:[]}catch{return []}});
+ const interactions=all.filter((m:any)=>m.kind==='interaction').slice(-40).flatMap((m:any)=>{try{const v=JSON.parse(m.content),target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return interactionKind(v.effect)&&Number.isInteger(target)&&target>=0&&target<r.players.length?[{id:m.id,seat:seat(m),name:m.name,targetName:v.targetName??r.players[target]?.name??'当时的牌友',effect:v.effect,target,at:m.at}]:[]}catch{return []}});
  const participant=r.players.find(p=>p.id===id),round=r.history?.find(h=>h.round===r.round);const accountSaveStatus=participant?.accountId&&r.phase==='done'?(round?.accountArchived?'账单与回放已保存':'账单与回放等待重试保存'):undefined;
- return {...view(r,id),accountSaveStatus,messages:all.filter((m:any)=>m.kind!=='interaction').slice(-100).map((m:any)=>({id:m.id,seat:seat(m),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id})),interactions};
+ return {...view(r,id),accountSaveStatus,messages:all.slice(-100).flatMap((m:any)=>{const base={id:m.id,seat:seat(m),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id};if(m.kind!=='interaction')return [base];try{const v=JSON.parse(m.content);if(!interactionKind(v.effect))return [];const target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return [{...base,content:'',effect:v.effect,targetName:v.targetName??r.players[target]?.name??'当时的牌友'}]}catch{return []}}),interactions};
 }
 async function sendInteraction(r:Room,id:string,b:any,now:number){
  const me=r.players.findIndex(p=>p.id===id&&!p.bot);if(me<0)return reply({error:'请先加入房间'},403);
  if(!interactionKind(b.effect)||!Number.isInteger(b.target)||b.target<0||b.target>=r.players.length||b.target===me||typeof b.clientId!=='string'||!/^[a-f0-9-]{36}$/.test(b.clientId))return reply({error:'请选择一个表情和其他牌友的头像'},400);
  const previous=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(previous)return reply(await visible(r,id));
- const inserted=await db().prepare("INSERT INTO mahjong_chat (id, code, sender, client_id, name, kind, content, at) SELECT ?, ?, ?, ?, ?, 'interaction', ?, ? WHERE NOT EXISTS (SELECT 1 FROM mahjong_chat WHERE code = ? AND sender = ? AND kind = 'interaction' AND at > ?) ON CONFLICT(code, sender, client_id) DO NOTHING").bind(crypto.randomUUID(),r.code,id,b.clientId,r.players[me].name,JSON.stringify({effect:b.effect,target:b.target,targetId:r.players[b.target].id}),now,r.code,id,now-3000).run();
+ const inserted=await db().prepare("INSERT INTO mahjong_chat (id, code, sender, client_id, name, kind, content, at) SELECT ?, ?, ?, ?, ?, 'interaction', ?, ? WHERE NOT EXISTS (SELECT 1 FROM mahjong_chat WHERE code = ? AND sender = ? AND kind = 'interaction' AND at > ?) ON CONFLICT(code, sender, client_id) DO NOTHING").bind(crypto.randomUUID(),r.code,id,b.clientId,r.players[me].name,JSON.stringify({effect:b.effect,target:b.target,targetId:r.players[b.target].id,targetName:r.players[b.target].name}),now,r.code,id,now-3000).run();
  if(!inserted.meta.changes){const same=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(!same)return reply({error:'互动间隔至少 3 秒，请稍等'},429)}
- await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND kind = 'interaction' AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? AND kind = 'interaction' ORDER BY at DESC, id DESC LIMIT 40)").bind(r.code,r.code).run();
+ await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 100)").bind(r.code,r.code).run();
  return reply(await visible(r,id));
 }
 async function sendChat(r:Room,id:string,b:any,now:number){
@@ -38,7 +38,7 @@ async function sendChat(r:Room,id:string,b:any,now:number){
  const previous=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(previous)return reply(await visible(r,id));
  const inserted=await db().prepare('INSERT INTO mahjong_chat (id, code, sender, client_id, name, kind, content, at) SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM mahjong_chat WHERE code = ? AND sender = ? AND kind != \'interaction\' AND at > ?) ON CONFLICT(code, sender, client_id) DO NOTHING').bind(crypto.randomUUID(),r.code,id,b.clientId,p.name,b.kind,text,now,r.code,id,now-1000).run();
  if(!inserted.meta.changes){const same=await db().prepare('SELECT id FROM mahjong_chat WHERE code = ? AND sender = ? AND client_id = ?').bind(r.code,id,b.clientId).first();if(!same)return reply({error:'发送太快，请稍等一秒'},429);}
- await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND kind != 'interaction' AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? AND kind != 'interaction' ORDER BY at DESC, id DESC LIMIT 100)").bind(r.code,r.code).run();
+ await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 100)").bind(r.code,r.code).run();
  return reply(await visible(r,id));
 }
 const PLAY_ACTIONS=['discard','hu','skipHu','skipKong','peng','gang','bu','pass'];
