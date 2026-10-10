@@ -12,3 +12,4 @@ INSERT INTO mahjong_releases (version,deployed_at,activity,commit_sha) VALUES (3
 INSERT INTO mahjong_releases (version,deployed_at,activity,commit_sha) VALUES (40,'2026-10-10T08:53:38.170Z','结算互动直接展开与手机手牌区空间复用','364f9bf6d2bae30ad413f80f3b5df3961b8684d4') ON CONFLICT(version) DO NOTHING;
 INSERT INTO mahjong_releases (version,deployed_at,activity,commit_sha) VALUES (41,'2026-10-10T13:05:08.941Z','结算互动折叠、同尺寸弹窗与手机聊天区扩展','6936fceff50206fa98a6da709135f40577436744') ON CONFLICT(version) DO NOTHING;
 INSERT INTO mahjong_releases (version,deployed_at,activity,commit_sha) VALUES (42,'2026-10-10T13:20:26.322Z','结算互动按钮文字对比、图标与边框增强','eb6fc2e5cdedc9564de3c8b4f3eee0f310de0cbe') ON CONFLICT(version) DO NOTHING;
+INSERT INTO mahjong_releases (version,deployed_at,activity,commit_sha) VALUES (43,'2026-10-10T14:21:50.443Z','普通窗口结算区域高度恢复与互动布局修复','3ccd4b6e990caf927c70f4ed6b75f5f4b7e5299a') ON CONFLICT(version) DO NOTHING;

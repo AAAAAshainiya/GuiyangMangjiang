@@ -1,6 +1,6 @@
 {
-  "sourceVersion": 42,
-  "sourceCommit": "eb6fc2e5cdedc9564de3c8b4f3eee0f310de0cbe",
+  "sourceVersion": 43,
+  "sourceCommit": "3ccd4b6e990caf927c70f4ed6b75f5f4b7e5299a",
   "initialAllTests": {
     "passed": 34,
     "failed": 11,
@@ -284,5 +284,7 @@
       "latestResult": "passed",
       "note": ""
     }
-  ]
+  ],
+  "historicalAllTestsCheckedAtSourceVersion": 42,
+  "currentTestRerunAtSourceVersion": 43
 }

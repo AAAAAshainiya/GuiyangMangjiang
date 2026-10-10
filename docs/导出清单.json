@@ -1,7 +1,7 @@
 {
-  "sourceVersion": 42,
-  "sourceCommit": "eb6fc2e5cdedc9564de3c8b4f3eee0f310de0cbe",
-  "gitCommits": 43,
+  "sourceVersion": 43,
+  "sourceCommit": "3ccd4b6e990caf927c70f4ed6b75f5f4b7e5299a",
+  "gitCommits": 44,
   "trackedSourceFiles": 262,
   "missingSourceFiles": [],
   "excludedTrackedCache": [
@@ -14,7 +14,7 @@
     "tests/features-v27.test.mjs",
     "tests/features-v28.test.mjs"
   ],
-  "changeReason": "中文交接说明、忽略规则、可移交命令及两项测试加载器映射；全部游戏业务／页面／样式／资源与v42逐字节一致",
+  "changeReason": "中文交接说明、忽略规则、可移交命令及两项测试加载器映射；全部游戏业务／页面／样式／资源与v43逐字节一致",
   "excludedRuntimeData": [
     "node_modules",
     "dist",
@@ -25,11 +25,11 @@
     "真实.env和密钥",
     "私人生产数据库／上传照片／账单／回放"
   ],
-  "historyBundleSHA256": "a1f5e6439eba9bf13d7f2259b71c4936929149264d290bf4d8fa27343f955768",
+  "historyBundleSHA256": "c026afd62576290a15aff9d65552fb2c1f3cc3bdec847e7966dcec1b29984903",
   "historyBlobScan": {
-    "blobs": 627,
+    "blobs": 629,
     "matches": 0,
     "scope": "常见凭据格式扫描，不保证发现所有形式的秘密"
   },
-  "publicReleaseRecords": "docs/版本历史.json：原站公开v1—v42；db/seed-public-releases.sql：v30—v42，不含私人数据"
+  "publicReleaseRecords": "docs/版本历史.json：原站公开v1—v43；db/seed-public-releases.sql：v30—v43，不含私人数据"
 }

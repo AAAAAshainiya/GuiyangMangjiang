@@ -667,7 +667,7 @@ html[data-mj-theme] .hand-area .hint-button{color:var(--mj-table-text)!important
 html[data-mj-theme] .felt .self-seat .chat-panel-v38 strong{color:var(--mj-ink,#294936)!important}
 html[data-mj-theme] .felt .self-seat .chat-panel-v38 :is(small,label,.chat-empty,.interaction-help){color:var(--mj-control-text,#526858)!important}
 /* Settlement interaction overlays only the bill; hand and next-round controls stay separate. */
-.felt.settlement-social-layout{display:block;min-height:0;overflow:hidden}
+.felt.settlement-social-layout{display:block;overflow:hidden}
 .felt.settlement-social-layout>.seat,.felt.settlement-social-layout>.self-seat,.felt.settlement-social-layout>.discard-zone,.felt.settlement-social-layout>.table-center{display:none}
 .settlement-social-layout .round-next-panel{max-height:none;flex-shrink:0}
 .settlement-summary-frame{position:relative;flex:1 1 auto;min-height:0;width:100%;isolation:isolate}

@@ -1,5 +1,5 @@
 {
-  "currentVersion": 42,
+  "currentVersion": 43,
   "records": [
     {
       "version": 1,
@@ -252,6 +252,12 @@
       "deployedAt": "2026-10-10T13:20:26.322Z",
       "activity": "结算互动按钮文字对比、图标与边框增强",
       "commit": "eb6fc2e5cdedc9564de3c8b4f3eee0f310de0cbe"
+    },
+    {
+      "version": 43,
+      "deployedAt": "2026-10-10T14:21:50.443Z",
+      "activity": "普通窗口结算区域高度恢复与互动布局修复",
+      "commit": "3ccd4b6e990caf927c70f4ed6b75f5f4b7e5299a"
     }
   ]
 }

@@ -1,6 +1,6 @@
-# 贵阳捉鸡麻将 · v42 完整项目
+# 贵阳捉鸡麻将 · v43 完整项目
 
-这是当前已上线网站的完整源码与可继续开发的交接包。原站：[贵阳捉鸡麻将](https://guiyang-mahjong-table.ashainidwq.chatgpt.site)。代码基线为 `eb6fc2e5cdedc9564de3c8b4f3eee0f310de0cbe`（线上成功部署记录时间2026-10-10 21:20:26，北京时间），原 Git main 有 **43 次提交**，不是全新项目。导出时未改变原站的功能、积分或界面，也没有再次发布。源码和历史的对应关系见 `docs/导出清单.json`。
+这是当前已上线网站的完整源码与可继续开发的交接包。原站：[贵阳捉鸡麻将](https://guiyang-mahjong-table.ashainidwq.chatgpt.site)。代码基线为 `3ccd4b6e990caf927c70f4ed6b75f5f4b7e5299a`（线上成功部署记录时间2026-10-10 22:21:50，北京时间），原 Git main 有 **44 次提交**，不是全新项目。本次先发布v43，修复普通窗口结算时桌面区域塌陷；交接包与该已上线提交逐字节核对，导出阶段没有另改游戏功能。源码和历史的对应关系见 `docs/导出清单.json`。
 
 ## 技术栈与环境
 
@@ -28,7 +28,7 @@ macOS、Linux、Windows可用正常 Node/pnpm 安装。默认使用 portable 配
 - `build/`、`scripts/`：完整Worker入口、Vite插件、运行与构建脚本、导出新增的测试／独立部署辅助脚本。
 - `package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`：依赖与供应链策略；Vite、TS、Tailwind/PostCSS、Drizzle、ESLint配置全部保留。
 - `docs/`：中文交接、验证报告、规则与开发日志快照、公开版本历史、导出清单。
-- `history/guiyang-mahjong-v42-history.bundle`：可恢复原43次提交的 Git bundle；另单独提供同一个bundle文件。
+- `history/guiyang-mahjong-v43-history.bundle`：可恢复原44次提交的 Git bundle；另单独提供同一个bundle文件。
 
 音效由Web Audio代码合成，无缺失音频文件，也没有BGM。界面字体使用系统字体栈，没有运行时下载的外部字体文件。未发现缺失源码或源码引用的静态资源。**用户上传照片是R2生产数据，不是内置资源，未导出**；生产账号、密码摘要、会话、私人账单、回放、数据库备份均未包含。新建数据库会是空账号与空对局，原站数据不会自动迁移。
 
@@ -76,18 +76,20 @@ npm run test:all
 
 | 命令 | 本次结果 |
 |---|---|
-| pnpm install --frozen-lockfile --prod=false --prefer-offline | 成功；独立副本新安装718个包，缓存复用718、下载0，锁文件不变。 |
+| pnpm install --frozen-lockfile --prod=false --prefer-offline | 成功；v43本次冻结安装检查Already up to date，3.7秒、锁文件不变；复用v42独立新安装的718包（当时缓存718、下载0），没有从原站复制node_modules。 |
 | npm run typecheck | 成功 |
 | npm test | 当前测试入口36/36通过；明确排除9个不兼容的历史夹具，未删除它们。 |
 | npm run build | 成功；完整客户端分析／服务端分析／RSC／客户端／SSR五阶段，生成dist/client与dist/server。 |
-| 45个原有测试全部执行 | 首次34通过、11失败；为v27/v28测试补齐新增互动组件的导入映射后，两项复查通过。最终36项通过，9项历史夹具仍失败（八项旧模拟缺少模块／链接不兼容，一项规则编辑器忽略登录权限）。原文件保留，逐项见验证报告。 |
+| 45个原有测试全部执行（此前v42交接） | 此前v42首次34通过、11失败；为v27/v28测试补齐新增互动组件的导入映射后，两项复查通过。最终36项通过，9项历史夹具仍失败（八项旧模拟缺少模块／链接不兼容，一项规则编辑器忽略登录权限）。原文件保留，逐项见验证报告。 |
 | npm run test:runtime | 成功；真实生产Worker直接dispatch：三个SSR页面、图片／牌面、六份D1迁移、注册／登录态、满人机房间被好友替换及R2绑定。 |
-| npm run db:migrate:local | 六份迁移成功，再执行无待迁移项 |
-| npm run db:seed:local | 成功；仅写入原站公开v30—v42部署历史 |
+| npm run db:migrate:local | v43复查无待迁移项；v42首次六份迁移成功，v43运行检查的临时D1也实际执行全部六份。 |
+| npm run db:seed:local | 成功；仅写入原站公开v30—v43部署历史 |
 | npm run deploy:dry-run | 成功；使用虚拟资源ID验证部署包及DB／BUCKET绑定，没有创建或上传生产资源。 |
-| 原Git bundle恢复 | 实际克隆、43次提交、HEAD与文件树核对通过。 |
+| 原Git bundle恢复 | 实际克隆、44次提交、HEAD与文件树核对通过。 |
 
-详细运行结果和验证范围见 `docs/验证报告.md`。lint、真实浏览器／手机画面与触控、真实系统全屏、弱网、国内可达性、远端生产部署 **未执行**。没有把组件或CSS计算当成真机验证。构建有大于500KB的客户端chunk和Vinext动态路由分类提示，非构建失败。
+v43当前36项已重新运行并全部通过；全量45项未在v43重跑，9项历史夹具的不兼容结论沿用v42检查。源码CSS级联核对七组普通／全屏／手机横竖屏，普通桌面结算区恢复650px；这不是浏览器几何实测。
+
+详细运行结果和验证范围见 `docs/验证报告.md`。lint、真实浏览器／手机画面与触控、真实系统全屏、弱网、国内可达性、自有Cloudflare远端生产部署 **未执行**；原站Sites v43已成功部署。没有把组件或CSS计算当成真机验证。构建有大于500KB的客户端chunk和Vinext动态路由分类提示，非构建失败。
 
 ## 环境变量与外部服务
 
@@ -102,7 +104,7 @@ npm run test:all
 | CLOUDFLARE_ACCOUNT_ID | 自动部署选择账户，可选；脚本实际Worker配置从deploy.config.json读取 |
 | .env.example | 仅变量名和示例值；游戏无需应用密钥，DB／BUCKET不是字符串环境变量 |
 
-本项目不自动将.env.example当成真实配置读取。自动部署通过安全环境变量传入token，或按Wrangler的 `--env-file`机制；本项目部署命令推荐安全环境变量。密码盐、会话token、恢复码在服务器安全生成，密码／恢复码只保存摘要。版本记录源码仅有公钥；v42私钥已销毁，不在ZIP或bundle中。未来新增版本按 `RELEASE.md`生成临时签名密钥，并用实际成功部署时间登记。
+本项目不自动将.env.example当成真实配置读取。自动部署通过安全环境变量传入token，或按Wrangler的 `--env-file`机制；本项目部署命令推荐安全环境变量。密码盐、会话token、恢复码在服务器安全生成，密码／恢复码只保存摘要。版本记录源码仅有公钥；v43私钥已销毁，不在ZIP或bundle中。未来新增版本按 `RELEASE.md`生成临时签名密钥，并用实际成功部署时间登记。
 
 源项目保留Sites专用的 `.openai/hosting.json`、构建兼容层、可选GPT登录／连接器代码，以完整恢复既有源码。游戏实际不依赖GPT登录或第三方连接器；独立Cloudflare部署使用自有账户、DB和BUCKET，不向原Sites项目推送或部署。原project_id是追溯标识，不是凭据。
 
@@ -126,7 +128,7 @@ npm run deploy:dry-run
 npm run deploy
 ```
 
-脚本保留Vinext生成的ESM模块／assets配置，输出 `dist/server/wrangler.deploy.json`并用真实D1/R2绑定替换本地占位符。每次重建后重新生成部署配置。发布后使用返回的HTTPS地址验证账号、联机、头像和回放；自有域名可再在Cloudflare配置。上述**远端创建／迁移／实际发布未在本次执行**，避免改动用户原站或替用户创建未指定的资源。
+脚本保留Vinext生成的ESM模块／assets配置，输出 `dist/server/wrangler.deploy.json`并用真实D1/R2绑定替换本地占位符。每次重建后重新生成部署配置。发布后使用返回的HTTPS地址验证账号、联机、头像和回放；自有域名可再在Cloudflare配置。上述**自有Cloudflare远端创建／迁移／实际发布未在本次执行**，避免改动用户原站或替用户创建未指定的资源。
 
 D1迁移按Wrangler迁移表只运行尚未执行的SQL。不要反复直接执行建表文件；结构变更运行 `npm run db:generate`生成新迁移，再检查SQL后应用。先做自己的数据库备份再迁移生产。公开版本种子使用ON CONFLICT DO NOTHING，不改已登记条目。
 
@@ -134,9 +136,9 @@ GitHub仓库用于保存与协作；**GitHub Pages不能完整运行本项目的
 
 ## Git历史与继续开发
 
-单独bundle与ZIP内副本一致，包含原main完整43次提交、HEAD及全部可达对象，不包含.git/config、远程登录凭据、reflog或当前本地运行数据库。原历史曾跟踪tsconfig.tsbuildinfo；为保留真实提交，bundle中该历史内容未改写，但ZIP工作树不含缓存文件，.gitignore已补齐。
+单独bundle与ZIP内副本一致，包含原main完整44次提交、HEAD及全部可达对象，不包含.git/config、远程登录凭据、reflog或当前本地运行数据库。原历史曾跟踪tsconfig.tsbuildinfo；为保留真实提交，bundle中该历史内容未改写，但ZIP工作树不含缓存文件，.gitignore已补齐。
 
-本次仅在交接副本中为两个旧测试加载器补充导入映射，游戏代码与线上v42一致；原始测试版本仍可从bundle恢复。
+本次仅在交接副本中为两个旧测试加载器补充导入映射，游戏代码与线上v43一致；原始测试版本仍可从bundle恢复。
 
 另一个AI按 `docs/交给另一个AI.md`先从bundle克隆，再覆盖ZIP工作树、移除原跟踪缓存、创建一个交接提交后推送用户指定仓库。不要重新git init抹掉历史，也不要默认force-push覆盖已有远程提交。
 
