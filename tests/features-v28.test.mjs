@@ -1,5 +1,5 @@
 import {loader} from './account-v32-loader.mjs';
-const avatarModule=await loader()('app/game-avatar.tsx');
+const avatarModule=await loader()('app/game-avatar.tsx'),ledgerModule=await loader()('lib/settlement-ledger.ts');
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -15,7 +15,7 @@ import {loadLocalLibrary} from './modules-v13.mjs';
 const training=await loadLocalLibrary('lib/training.ts'),solo=await loadLocalLibrary('lib/solo.ts'),selection=await loadLocalLibrary('lib/selection.ts'),events=await loadLocalLibrary('lib/table-events.ts');
 const Button=({children,...p})=>React.createElement('button',p,children),dialog=Object.fromEntries(['Dialog','DialogContent','DialogHeader','DialogTitle','DialogDescription'].map(k=>[k,({children})=>React.createElement('div',null,children)]));
 function mod(o){return new vm.SyntheticModule(Object.keys(o),function(){for(const k of Object.keys(o))this.setExport(k,o[k])})}
-async function component(file,extra={}){const imports={'react':React,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/training':training,'@/lib/table-events':events,'@/lib/table-client':client,'@/lib/interaction':interaction,'./game-avatar':avatarModule,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog,...extra},m=new vm.SourceTextModule(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText);await m.link(n=>mod(imports[n]));await m.evaluate();return m.namespace}
+async function component(file,extra={}){const imports={'react':React,'react/jsx-runtime':jsx,'lucide-react':icons,'@/lib/game':game,'@/lib/settlement-ledger':ledgerModule,'@/lib/training':training,'@/lib/table-events':events,'@/lib/table-client':client,'@/lib/interaction':interaction,'./game-avatar':avatarModule,'@/components/ui/button':{Button},'@/components/ui/dialog':dialog,...extra},m=new vm.SourceTextModule(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText);await m.link(n=>mod(imports[n]));await m.evaluate();return m.namespace}
 const social=await component('app/game-social.tsx'),coach=await component('app/game-coach.tsx'),progress=await component('app/game-progress.tsx',{'./game-social':social});
 const actions=await component('app/game-actions.tsx'),rulesUI=await component('app/game-rules.tsx');
 const flat=[0,1,2,3,4,5,10,11,12,21,22,23,16],pure=[0,0,1,1,2,2,3,3,4,4,5,5,6],unready=[0,2,4,6,8,9,11,13,15,18,20,22,24];

@@ -98,7 +98,7 @@ export async function POST(req:Request){try{
   // Claim responses from different seats share a stable action context, while
   // every persisted change still uses the SQL compare-and-swap revision.
   const isPlay=PLAY_ACTIONS.includes(b.action);
-  const stale=isPlay?(b.context!==undefined?b.context!==actionContext(r,i):b.version!==r.playVersion):b.action==='terminate'?b.round!==r.round:(b.action==='kick'?b.version!==r.playVersion:b.action!=='resume'&&b.clientId&&b.version!==r.playVersion);
+  const stale=isPlay?(b.context!==undefined?b.context!==actionContext(r,i):b.version!==r.playVersion):b.action==='terminate'?b.round!==r.round:(b.action==='kick'?b.version!==r.playVersion:!['resume','leaveForLogout'].includes(b.action)&&b.clientId&&b.version!==r.playVersion);
   if(stale)return reply({error:'牌桌已更新，已为你同步最新操作',code:'STATE_CHANGED',state:await visible(r,id)},409);
   r.players[i].seen=now;
   let left=false;
@@ -118,9 +118,10 @@ export async function POST(req:Request){try{
    else if(b.action==='resume'){if(!['play','claim'].includes(r.phase))throw new Error('当前无需恢复手动操作');r.players[i].managed=false;if(r.phase==='play'&&r.turn===i)r.deadline=now+45000;log(r,`${r.players[i].name}已恢复手动操作`)}
    else if(b.action==='speed'){if(r.host!==id)throw new Error('只有房主可以设置快速模式');if(!['lobby','done'].includes(r.phase))throw new Error('下一局开始前可以调整模式');if(![0,1].includes(b.tile))throw new Error('模式设置不正确');r.fast=b.tile===1;log(r,r.fast?'快速模式已开启：人机等待半秒':'快速模式已关闭：人机等待两秒')}
    else if(b.action==='profile'){if(!['lobby','done'].includes(r.phase))throw new Error('本局结束后可以修改资料');const name=account?.nickname??String(b.name??'').trim().slice(0,12);if(!name||!account&&!AVATARS.includes(b.avatar))throw new Error('请选择昵称和头像');r.players[i].name=name;r.players[i].avatar=account?.avatar??b.avatar}
-   else if(b.action==='leave'){
+   else if(b.action==='leave'||b.action==='leaveForLogout'){
+    if(b.action==='leaveForLogout'&&!['lobby','done'].includes(r.phase))throw new Error('多人牌局已开始，请先离开牌桌，再退出账号');
     const name=r.players[i].name;
-    if(r.phase==='play'||r.phase==='claim'){r.players[i].id='bot:'+crypto.randomUUID();r.players[i].bot=true;r.players[i].name=name+'（托管）';r.players[i].ready=true;if(r.phase==='play'&&r.turn===i)r.deadline=now+botDelay(r)}
+    if(r.phase==='play'||r.phase==='claim'){r.players[i].id='bot:'+crypto.randomUUID();r.players[i].bot=true;delete r.players[i].accountId;r.players[i].name=name+'（托管）';r.players[i].ready=true;if(r.phase==='play'&&r.turn===i)r.deadline=now+botDelay(r)}
     else{r.players.splice(i,1);r.phase='lobby';r.result=null;r.dealer=Math.max(0,Math.min(r.dealer,r.players.length-1))}
     log(r,`${name}离开牌桌`);if(r.host===id){const humans=r.players.filter(p=>!p.bot),next=humans[Math.floor(Math.random()*humans.length)];r.host=next?.id??'';if(next)log(r,`${next.name}成为新房主`)}left=true;
    }else if(b.action==='fill'||b.action==='removeBots'){

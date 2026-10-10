@@ -7,7 +7,7 @@ export class SoloGame{
  room:Room;pausedAt:number|null=null;lastActivityAt:number;pauseReason:'manual'|'idle'|'restore'|null=null;
  constructor(name='单人牌友',avatar='🐼',now=Date.now(),fast=false,rules:GameRules=defaultRules(),accountOwner?:string,recordReplay=false){
   this.lastActivityAt=now;
-  this.room=create('SOLO','solo',name);this.room.fast=fast;this.room.players[0].avatar=avatar;this.room.rules=rules;this.room.accountOwner=accountOwner;this.room.nextReplayEnabled=recordReplay;
+  this.room=create('SOLO','solo',name);this.room.fast=fast;this.room.players[0].avatar=avatar;this.room.rules=rules;this.room.accountOwner=accountOwner;this.room.nextReplayEnabled=!!accountOwner&&recordReplay;
   for(let i=0;i<3;i++)this.room.players.push(player('bot:solo'+i,nextBotName(this.room.players),true));
   this.room.players[0].ready=true;start(this.room,now);this.room.version=0;this.room.playVersion=0;
  }
@@ -24,7 +24,7 @@ export class SoloGame{
  pause(now=Date.now(),reason:'manual'|'idle'='manual'){if(this.pausedAt!==null||!['play','claim'].includes(this.room.phase))return;this.pausedAt=now;this.pauseReason=reason;this.bump()}
  resume(now=Date.now()){if(this.pausedAt===null)return;this.room.deadline+=Math.max(0,now-this.pausedAt);this.pausedAt=null;this.pauseReason=null;this.lastActivityAt=now;this.room.players[0].managed=false;this.bump()}
  human(action:string,tile?:number,now=Date.now(),rules?:unknown){
-  if(action==='recordReplay'){this.room.nextReplayEnabled=tile===1;this.bump();return}
+  if(action==='recordReplay'){if(!this.room.accountOwner)throw new Error('请先登录账号再录制回放');this.room.nextReplayEnabled=tile===1;this.bump();return}
   if(action==='rules'){setRoomRules(this.room,0,rules);this.bump();return}
   if(action==='pause'){this.pause(now);return}if(action==='continue'){this.resume(now);return}
   if(this.pausedAt!==null)throw new Error('牌局已暂停，继续后再操作');
@@ -34,6 +34,7 @@ export class SoloGame{
   else act(this.room,0,action,tile,now);
   this.lastActivityAt=now;this.room.players[0].managed=false;advance(this.room,now,0);this.bump();
  }
+ detachAccount(){this.room.accountOwner=undefined;this.room.replay=undefined;this.room.replayEnabled=false;this.room.nextReplayEnabled=false;this.bump()}
  serialize(now=Date.now()){return JSON.stringify({room:this.room,pausedAt:this.pausedAt,pauseReason:this.pauseReason,savedAt:now,remainingMs:Math.max(0,this.room.deadline-(this.pausedAt??now))})}
  static restore(value:string|null,now=Date.now()){
   try{const v=JSON.parse(value??'null'),r=v?.room;if(r?.code!=='SOLO'||r.host!=='solo'||r.players?.length!==4||r.players[0].id!=='solo'||r.players.slice(1).some((p:any)=>!p.bot)||!['play','claim','done'].includes(r.phase)||!Array.isArray(r.wall)||r.wall.length>108||r.players.some((p:any)=>!Array.isArray(p.hand)||p.hand.length>14||p.hand.some((t:any)=>!Number.isInteger(t)||t<0||t>26))||!Number.isFinite(v.remainingMs)||v.remainingMs<0||v.remainingMs>45000)return null;

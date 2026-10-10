@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import ExcelJS from 'exceljs';
+import {loader} from './account-v32-loader.mjs';
+const load=loader(),excel=await load('lib/account-excel.ts'),rules=await load('lib/rules.ts'),solo=await load('lib/solo.ts'),game=await load('lib/game.ts');
+const bytes=async w=>{const b=await w.xlsx.writeBuffer();return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength)};
+const original=rules.defaultRules(),w=excel.rulesWorkbook(original);
+assert.equal(w.getWorksheet('积分规则').getCell('A1').value,'项目');
+assert.equal(w.getWorksheet('积分规则').getCell('A3').value,'平胡');
+assert.deepEqual(JSON.parse(JSON.stringify(await excel.importRulesExcel(await bytes(w)))),original);
+w.getWorksheet('积分规则').getCell('B3').value=19;w.getWorksheet('鸡牌设置').getCell('B2').value='否';
+let imported=await excel.importRulesExcel(await bytes(w));assert.equal(imported.hu.ping,19);assert(!imported.chickenTiles.includes(0));assert.equal(original.hu.ping,4);
+for(const value of [-1,1001,3.5,'4',{formula:'1+3',result:4}]){w.getWorksheet('积分规则').getCell('B3').value=value;await assert.rejects(excel.importRulesExcel(await bytes(w)),/整数|公式/)}
+w.getWorksheet('积分规则').getCell('B3').value=4;w.getWorksheet('鸡牌设置').getCell('B2').value='maybe';await assert.rejects(excel.importRulesExcel(await bytes(w)),/是.*否/);
+w.getWorksheet('鸡牌设置').getCell('B2').value='是';w.getWorksheet('鸡牌设置').getCell('A3').value='1万';await assert.rejects(excel.importRulesExcel(await bytes(w)),/重复/);
+const missing=new ExcelJS.Workbook();missing.addWorksheet('wrong').addRow(['无效文件']);await assert.rejects(excel.importRulesExcel(await bytes(missing)),/缺少/);await assert.rejects(excel.importRulesExcel(new ArrayBuffer(3)),/xlsx/);await assert.rejects(excel.importRulesExcel(new ArrayBuffer(3*1024*1024)),/2MB/);
+const zip=await bytes(excel.rulesWorkbook(original)),evil=zip.slice(0),d=new DataView(evil);for(let p=0;p<d.byteLength-46;p++)if(d.getUint32(p,true)===0x02014b50){d.setUint32(p+24,11000000,true);break}await assert.rejects(excel.importRulesExcel(evil),/过大/);
+const result={winner:0,from:-1,huPayable:4,hu:[12,-4,-4,-4],beans:[0,0,0,0],chicken:[0,0,0,0],values:[0,0,0,0],eligible:[true,false,false,false],beanTransfers:[],delta:[12,-4,-4,-4],scoringVersion:3,kind:'自摸',pattern:'平胡',flip:0,rooster:1,readyInfo:[{ready:true},{ready:false},{ready:false},{ready:false}]};
+const bill={me:0,players:[0,1,2,3].map(i=>({name:'牌友'+i})),result};
+const b=excel.billsWorkbook([{game_id:'round-a',at:1700000000000,mode:'solo',round:1,delta:12,bill}]);assert.equal(b.getWorksheet('收付明细').rowCount,4);assert.equal(b.getWorksheet('对局总览').getCell('J2').value,12);assert.equal(b.getWorksheet('对局总览').getCell('K2').value,12);assert.equal(b.getWorksheet('收付明细').getCell('G2').value,'支付自摸胡分');
+const loser=excel.billsWorkbook([{game_id:'round-b',at:1700000000000,mode:'multi',round:2,delta:-4,bill:{...bill,me:1}}]);assert.equal(loser.getWorksheet('收付明细').getCell('D2').value,'扣分');assert.equal(loser.getWorksheet('收付明细').getCell('I2').value,-4);
+const roundtrip=new ExcelJS.Workbook();await roundtrip.xlsx.load(await bytes(b));assert.equal(roundtrip.getWorksheet('收付明细').getCell('I2').value,4);assert.equal(roundtrip.getWorksheet('收付明细').getRow(1).font?.name,undefined);assert.equal(roundtrip.getWorksheet('收付明细').getCell('A1').font.bold,true);
+const owned=new solo.SoloGame('账号','🐼',1000,false,original,'owner-a',true);assert(owned.room.replay);owned.detachAccount();assert.equal(owned.room.accountOwner,undefined);assert.equal(owned.room.replay,undefined);assert.equal(owned.room.nextReplayEnabled,false);assert.throws(()=>owned.human('recordReplay',1),/登录/);game.terminateRound(owned.room,0,2000);assert.equal(owned.room.history[0].replay,undefined);owned.human('start',undefined,3000);assert.equal(owned.room.replay,undefined);
+const guest=new solo.SoloGame('游客','🐼',1000,false,original,undefined,true);assert.equal(guest.room.replay,undefined);
+console.log('PASS v34: actual XLSX rule roundtrip, editable values/chickens, invalid/formula/duplicate/missing/oversize ZIP rejection, readable zero-sum receipt/debit bills, guest recording guard and logout detachment.');

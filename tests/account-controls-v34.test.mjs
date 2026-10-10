@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import * as React from 'react';
+import {loader} from './account-v32-loader.mjs';
+let cursor=0,slots=[],effects=[];
+const hooks={...React,useRef:v=>({current:v}),useState(v){const i=cursor++;if(!(i in slots))slots[i]=typeof v==='function'?v():v;return[slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v]},useEffect:fn=>effects.push(fn)};
+const account={user:{id:'a',username:'player',nickname:'玩家',avatar:'🐼',theme:'jade',rules:{},revision:1},ready:true,error:'',accept(u){this.user=u},saveRules:async()=>{},save:async()=>{}};
+const module=await loader({'react':hooks,'./account-context':{useAccount:()=>account,accountRequest:async()=>({}),applyTheme:()=>{}}})('app/account-control.tsx');
+const nodes=t=>Array.isArray(t)?t.flatMap(nodes):!t||typeof t!=='object'?[]:[t,...nodes(t.props?.children)];
+let called=0,fail=true;const render=()=>{cursor=0;return module.AccountControl({inRoom:true,onLogout:async()=>{called++;if(fail)throw new Error('多人牌局进行中，请先离开牌桌');account.accept(null)}})};
+let tree=render(),all=nodes(tree);assert(all.some(n=>n.props?.children==='个人资料'));assert(all.some(n=>n.props?.children==='账号安全'));assert(!all.some(n=>n.props?.children==='数据保护'));assert(all.some(n=>n.type?.name==='AccountExports'));
+let button=all.find(n=>n.type?.name==='Button'&&nodes(n).some(v=>v==='退出账号'));if(!button)button=all.find(n=>n.type?.name==='Button'&&n.props.onClick?.toString().includes('onLogout'));assert(button);assert.equal(button.props.disabled,false);await button.props.onClick();await new Promise(setImmediate);assert.equal(called,1);assert(nodes(render()).some(n=>n.props?.role==='alert'&&String(n.props.children).includes('多人牌局')));
+fail=false;button=nodes(render()).find(n=>n.type?.name==='Button'&&n.props.onClick?.toString().includes('onLogout'));await button.props.onClick();await new Promise(setImmediate);assert.equal(account.user,null);assert(nodes(render()).some(n=>n.props?.role==='status'&&n.props.children==='已退出账号'));
+console.log('PASS v34: actual account controls use renamed tabs, remove protection module, place exports in profile, keep logout clickable and show rejection/success feedback.');
