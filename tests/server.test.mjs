@@ -49,7 +49,7 @@ await assert.rejects(call(b,{action:'chat',code,text:'不是表情',kind:'emoji'
 room=await call(b,{action:'chat',code,text:'👍',kind:'emoji',clientId:crypto.randomUUID()});assert.equal(room.messages.length,2);
 const foreign=await call(c,{action:'create',name:'另一桌'});assert.equal((await read(c,foreign.code)).data.messages.length,0);
 room=await call(a,{action:'fill',code});assert.equal(room.players.length,4);assert.equal(room.players.filter(p=>p.bot).length,2);
-// All twelve targeted interactions use a separate cooldown and retry-safe ledger.
+// All eleven targeted interactions use a separate cooldown and retry-safe ledger.
 const interactionVersion=room.version,existingChat=room.messages.length;
 let interactionsSent=0;
 for(const effect of interaction.INTERACTIONS){
@@ -60,7 +60,7 @@ for(const effect of interaction.INTERACTIONS){
  assert.equal('sender' in room.interactions.at(-1),false);assert.equal('targetId' in room.interactions.at(-1),false);
  const count=room.interactions.length;room=await call(a,{action:'interaction',code,effect:effect.id,target:2,clientId});assert.equal(room.interactions.length,count);
 }
-assert.equal(room.interactions.length,12);assert.equal((await read(b,code)).data.interactions.length,12);
+assert.equal(room.interactions.length,11);assert.equal((await read(b,code)).data.interactions.length,11);
 await assert.rejects(call(a,{action:'interaction',code,effect:'tomato',target:1,clientId:crypto.randomUUID()}),/3 秒/);
 for(const target of [0,-1,4,1.5])await assert.rejects(call(a,{action:'interaction',code,effect:'egg',target,clientId:crypto.randomUUID()}),/头像/);
 await assert.rejects(call(a,{action:'interaction',code,effect:'unknown',target:1,clientId:crypto.randomUUID()}),/头像/);
@@ -69,7 +69,7 @@ const parallel=await Promise.allSettled([call(b,{action:'interaction',code,effec
 // The unified log contains interaction/text/emoji, while the animation stream stays bounded.
 for(let i=0;i<45;i++)sqlite.prepare('INSERT INTO mahjong_chat (id,code,sender,client_id,name,kind,content,at) VALUES (?,?,?,?,?,?,?,?)').run(crypto.randomUUID(),code,a.split('=')[1],crypto.randomUUID(),'测试房主','interaction',JSON.stringify({effect:'egg',target:1}),Date.now()-10000+i);
 sqlite.prepare("UPDATE mahjong_chat SET at = at - 3100 WHERE code = ? AND kind = 'interaction'").run(code);
-room=await call(a,{action:'interaction',code,effect:'redpacket',target:1,clientId:crypto.randomUUID()});assert.equal(room.interactions.length,40);assert.equal(room.messages.length,61);assert.equal(room.version,interactionVersion);
+room=await call(a,{action:'interaction',code,effect:'redpacket',target:1,clientId:crypto.randomUUID()});assert.equal(room.interactions.length,40);assert.equal(room.messages.length,60);assert.equal(room.version,interactionVersion);
 // A legacy room remains joinable and keeps its original key, scores and phase.
 const legacy=engine.create('ABCDEFGH',a.split('=')[1],'旧房主');sqlite.prepare('INSERT INTO mahjong_rooms (code,state,version,updated) VALUES (?,?,0,?)').run(legacy.code,JSON.stringify(legacy),Date.now());
 assert.equal((await read(a,legacy.code)).status,200);assert.equal((await call(b,{action:'join',code:legacy.code,name:'旧房好友'})).code,legacy.code);

@@ -42,7 +42,7 @@ export class MahjongAudio{
  stop(){for(const source of this.sources){try{source.stop()}catch{}}this.sources.clear()}
  dispose(){this.mute();void this.context?.close().catch(()=>{});this.context=null;this.master=null}
  interact(effect:string){
-  const cue=({tomato:'interaction-pop',egg:'interaction-pop',water:'interaction-water',hammer:'interaction-tap',flower:'interaction-spark',tea:'interaction-spark',clap:'interaction-tap',chicken:'interaction-chirp',redpacket:'interaction-spark',lucky:'interaction-chirp',flock:'interaction-chirp',inspect:'interaction-pop'} as Record<string,SoundKind>)[effect];
+  const cue=({tomato:'interaction-pop',egg:'interaction-pop',water:'interaction-water',hammer:'interaction-tap',flower:'interaction-spark',tea:'interaction-spark',chicken:'interaction-chirp',redpacket:'interaction-spark',lucky:'interaction-chirp',flock:'interaction-chirp',inspect:'interaction-pop'} as Record<string,SoundKind>)[effect];
   if(cue)this.play(cue,950);
  }
  play(kind:SoundKind,delayMs=0){

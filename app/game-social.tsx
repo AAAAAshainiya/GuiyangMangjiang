@@ -2,7 +2,7 @@
 import {settlementLedger} from '@/lib/settlement-ledger';
 export {settlementLedger} from '@/lib/settlement-ledger';
 import {Button} from '@/components/ui/button';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {MessageCircle,Send,X,ChevronRight} from 'lucide-react';
 import {CHAT_EMOJIS,tileName,defaultRules,isChicken} from '@/lib/game';
 import {INTERACTIONS,QUICK_MESSAGES,conversationMessages,interactionAction,type RoomMessage,type InteractionKind} from '@/lib/interaction';
@@ -14,7 +14,7 @@ export function ChatBubble({messages,seat,now,enabled}:{messages:Message[],seat:
  const message=enabled?[...messages].reverse().find(m=>m.kind!=='interaction'&&m.seat===seat&&now-m.at<4000&&now>=m.at-1000):null;
  return message?<div className={'chat-bubble '+(message.kind==='emoji'?'emoji-bubble':'')} role="status">{message.content}</div>:null;
 }
-export function ChatPanel({room,onUpdate,onBubbles,onPick,blocked=false}:{room:any,onUpdate:(data:any)=>void,onBubbles:(enabled:boolean)=>void,onPick?:(effect:InteractionKind)=>void,blocked?:boolean}){
+export function ChatPanel({room,onUpdate,onBubbles,onPick,blocked=false,inline=false,renderHeader}:{room:any,onUpdate:(data:any)=>void,onBubbles:(enabled:boolean)=>void,onPick?:(effect:InteractionKind)=>void,blocked?:boolean,inline?:boolean,renderHeader?:(toggle:ReactNode)=>ReactNode}){
  const [open,setOpen]=useState(false),[draft,setDraft]=useState(''),[sending,setSending]=useState(false),[error,setError]=useState(''),[unread,setUnread]=useState(0),[bubbles,setBubbles]=useState(true),[retry,setRetry]=useState<{text:string,kind:string,id:string}|null>(null),[tab,setTab]=useState<'interaction'|'emoji'|'text'>('interaction');
  const seen=useRef<Set<string>|null>(null),scroll=useRef<HTMLDivElement>(null),locked=useRef(false),lastSent=useRef(0),follow=useRef(true),panel=useRef<HTMLElement>(null);
  const messages=conversationMessages(room);
@@ -23,11 +23,11 @@ export function ChatPanel({room,onUpdate,onBubbles,onPick,blocked=false}:{room:a
  useEffect(()=>{if(!seen.current){seen.current=new Set(messages.map(m=>m.id));return}const fresh=messages.filter(m=>!seen.current!.has(m.id));seen.current=new Set(messages.map(m=>m.id));if(open)setUnread(0);else setUnread(n=>n+fresh.filter(m=>!m.mine).length)},[room.messages,room.interactions,open]);
  useEffect(()=>{if(open&&scroll.current&&follow.current)scroll.current.scrollTop=scroll.current.scrollHeight},[room.messages,room.interactions,open]);
  useEffect(()=>{
-  if(!open||blocked)return;
+  if(!open||blocked||inline)return;
   const element=panel.current,seat=element?.closest('.self-seat'),felt=element?.closest('.felt');if(!element||!seat||!felt)return;
   const fit=()=>{const bounds=felt.getBoundingClientRect(),anchor=seat.getBoundingClientRect();const available=Math.max(120,anchor.top-Math.max(0,bounds.top)-16);element.style.setProperty('--chat-available',available+'px');element.classList.toggle('chat-compact',available<300)};
   fit();const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(fit);observer?.observe(felt);observer?.observe(seat);window.addEventListener('resize',fit);return()=>{observer?.disconnect();window.removeEventListener('resize',fit)};
- },[open,blocked]);
+ },[open,blocked,inline]);
  async function send(text:string,kind='text',id=crypto.randomUUID()){
   text=text.trim();if(!text||locked.current)return;if(Array.from(text).length>100){setError('最多发送 100 字');return}if(Date.now()-lastSent.current<1000){setError('稍等一秒再发送');return}
   locked.current=true;setSending(true);setError('');setRetry(null);follow.current=true;
@@ -36,8 +36,9 @@ export function ChatPanel({room,onUpdate,onBubbles,onPick,blocked=false}:{room:a
   finally{locked.current=false;setSending(false)}
  }
  const panelId='room-chat-'+room.code;
- return <div className="chat-controls"><button className="chat-toggle" disabled={blocked} aria-label="打开互动与聊天" aria-expanded={open&&!blocked} onClick={()=>{follow.current=true;setOpen(!open)}}><MessageCircle size={17}/>互动{unread>0&&!open&&<b>{unread>99?'99+':unread}</b>}</button>
- {open&&!blocked&&<section ref={panel} className="chat-panel chat-panel-v38" aria-label="房间互动与聊天"><div className="chat-panel-heading"><strong>互动与聊天</strong><label><input type="checkbox" checked={bubbles} onChange={e=>{setBubbles(e.target.checked);onBubbles(e.target.checked)}}/>桌面气泡</label><button aria-label="关闭聊天" onClick={()=>setOpen(false)}><X size={18}/></button></div>
+ const toggle=<button className="chat-toggle" disabled={blocked} aria-label="打开互动与聊天" aria-expanded={open&&!blocked} onClick={()=>{follow.current=true;setOpen(!open)}}><MessageCircle size={17}/>互动{unread>0&&!open&&<b>{unread>99?'99+':unread}</b>}</button>;
+ return <div className={inline?"chat-controls settlement-chat-controls":"chat-controls"}>{renderHeader?renderHeader(toggle):toggle}
+ {open&&!blocked&&<section ref={panel} className={"chat-panel chat-panel-v38"+(inline?" settlement-chat-panel":"")} aria-label="房间互动与聊天"><div className="chat-panel-heading"><strong>互动与聊天</strong><label><input type="checkbox" checked={bubbles} onChange={e=>{setBubbles(e.target.checked);onBubbles(e.target.checked)}}/>桌面气泡</label><button aria-label="关闭聊天" onClick={()=>setOpen(false)}><X size={18}/></button></div>
  <div className="conversation-heading"><span>聊天记录</span><small>本房间最近消息</small></div>
  <div className="chat-history" ref={scroll} role="log" aria-label="房间聊天记录" aria-live="polite" aria-relevant="additions" onScroll={()=>{const n=scroll.current;if(n)follow.current=n.scrollHeight-n.scrollTop-n.clientHeight<40}}>{messages.length?messages.map(m=><div key={m.id} className={'chat-message '+(m.mine?'mine':'')+(m.kind==='interaction'?' interaction-message':'')}><small><strong>{m.name}</strong>{m.mine?'（你）':''} · <time dateTime={new Date(m.at).toISOString()}>{new Date(m.at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</time></small><p>{m.kind==='interaction'&&m.effect?<><strong>{m.name}</strong> 向 <strong>{m.targetName??'当时的牌友'}</strong> {interactionAction(m.effect)} <span aria-hidden="true">{INTERACTIONS.find(e=>e.id===m.effect)?.emoji}</span></>:m.content}</p></div>):<p className="chat-empty">文字、Emoji和定向互动都会记录在这里。</p>}</div>
  <div className="chat-tabs" role="tablist" aria-label="互动方式">{([['interaction','互动表情'],['emoji','Emoji'],['text','文字']] as const).map(([id,label])=><button key={id} role="tab" id={panelId+'-'+id} aria-selected={tab===id} aria-controls={panelId+'-content'} onClick={()=>setTab(id)}>{label}</button>)}</div>

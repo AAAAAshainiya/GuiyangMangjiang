@@ -3,7 +3,7 @@ import {getAccount} from '@/lib/account-server';
 import {persistRoomRecords} from '@/lib/account-records';
 import { CHAT_EMOJIS, AVATARS, validateRules, rulesEqual, setRoomRules, nextBotName, terminateRound, advance, archiveRound, botDelay, actionContext, act, create, player, start, view, log, type Room } from '@/lib/game';
 export const dynamic='force-dynamic';
-import {interactionKind,validRoomCode as valid,roomCode} from '@/lib/interaction';
+import {interactionKind,recordedInteractionKind,validRoomCode as valid,roomCode} from '@/lib/interaction';
 class RequestError extends Error {constructor(message:string,public status=400,public code='ACTION_REJECTED'){super(message)}}
 function session(req:Request){return req.headers.get('cookie')?.match(/(?:^|; )mj_guest=([a-f0-9]{64})(?:;|$)/)?.[1]}
 function reply(data:unknown,status=200,cookie?:string){return Response.json(data,{status,headers:{'Cache-Control':'no-store',...(cookie?{'Set-Cookie':`mj_guest=${cookie}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`}:{})}})}
@@ -20,7 +20,7 @@ async function visible(r:Room,id:string){
  const all=rows.results.reverse(),seat=(m:any)=>r.players.findIndex(p=>p.id===m.sender);
  const interactions=all.filter((m:any)=>m.kind==='interaction').slice(-40).flatMap((m:any)=>{try{const v=JSON.parse(m.content),target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return interactionKind(v.effect)&&Number.isInteger(target)&&target>=0&&target<r.players.length?[{id:m.id,seat:seat(m),name:m.name,targetName:v.targetName??r.players[target]?.name??'当时的牌友',effect:v.effect,target,at:m.at}]:[]}catch{return []}});
  const participant=r.players.find(p=>p.id===id),round=r.history?.find(h=>h.round===r.round);const accountSaveStatus=participant?.accountId&&r.phase==='done'?(round?.accountArchived?'账单与回放已保存':'账单与回放等待重试保存'):undefined;
- return {...view(r,id),accountSaveStatus,messages:all.slice(-100).flatMap((m:any)=>{const base={id:m.id,seat:seat(m),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id};if(m.kind!=='interaction')return [base];try{const v=JSON.parse(m.content);if(!interactionKind(v.effect))return [];const target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return [{...base,content:'',effect:v.effect,targetName:v.targetName??r.players[target]?.name??'当时的牌友'}]}catch{return []}}),interactions};
+ return {...view(r,id),accountSaveStatus,messages:all.slice(-100).flatMap((m:any)=>{const base={id:m.id,seat:seat(m),name:m.name,kind:m.kind,content:m.content,at:m.at,mine:m.sender===id};if(m.kind!=='interaction')return [base];try{const v=JSON.parse(m.content);if(!recordedInteractionKind(v.effect))return [];const target=typeof v.targetId==='string'?r.players.findIndex(p=>p.id===v.targetId):v.target;return [{...base,content:'',effect:v.effect,targetName:v.targetName??r.players[target]?.name??'当时的牌友'}]}catch{return []}}),interactions};
 }
 async function sendInteraction(r:Room,id:string,b:any,now:number){
  const me=r.players.findIndex(p=>p.id===id&&!p.bot);if(me<0)return reply({error:'请先加入房间'},403);

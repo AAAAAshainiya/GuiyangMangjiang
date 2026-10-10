@@ -1,4 +1,4 @@
 // Release signing keys: public only; private key stays in release session memory.
-export const CURRENT_VERSION = 38;
-export const CURRENT_ACTIVITY = "邀请直达房间、统一互动记录与精细表情动画";
-export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"1VFoFPqv56-xg3K8SK2CfQa4_tTfIFlNKsAMM881vII","y":"F4lwjpLHtHcyYuEnX41ZzKvVNhi39oNJW6xpYp4Xie8","crv":"P-256"};
+export const CURRENT_VERSION = 39;
+export const CURRENT_ACTIVITY = "结算期间互动分区、删除鼓掌与30种Emoji";
+export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"V0_w_4Erupsh38yxgIYf_XHFIOH1nqld4ZNRS4tckno","y":"inlh31fGqaS1T9Jo25SUe0wEmg4vLtVgSE7TAheZ4BE","crv":"P-256"};

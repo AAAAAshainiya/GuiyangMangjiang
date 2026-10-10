@@ -15,7 +15,7 @@ const old=forced.poll(),fresh=forced.poll(true);pending[1]({version:4});await fr
 const nowBefore=Date.now;let now=1000;Date.now=()=>now;
 const stale=[];const hanging=new TablePoller(()=>new Promise(()=>{}),()=>{},ok=>stale.push(ok),()=>false,()=>{});void hanging.poll();now+=9000;await hanging.poll();assert.equal(stale.at(-1),false,'connected marker expires while a request is pending');hanging.offline();hanging.stop();Date.now=nowBefore;globalThis.fetch=fetchBefore;
 for(let i=0;i<500;i++){const code=roomCode();assert.equal(code.length,4);assert(validRoomCode(code));}
-assert(validRoomCode('G6HGF2RH'));assert(!validRoomCode('ABCDE'));assert(!validRoomCode('abcd'));assert.equal(INTERACTIONS.length,12);
+assert(validRoomCode('G6HGF2RH'));assert(!validRoomCode('ABCDE'));assert(!validRoomCode('abcd'));assert.equal(INTERACTIONS.length,11);
 const tracker=new InteractionTracker(),event={id:'old',seat:0,target:1,effect:'tomato',at:1000,name:'甲'};
 assert.deepEqual(tracker.observe('ABCD',[event],1000),[]);
 const next={...event,id:'next',at:1100};assert.deepEqual(tracker.observe('ABCD',[event,next],1200),[next]);assert.deepEqual(tracker.observe('ABCD',[event,next],1300),[]);
