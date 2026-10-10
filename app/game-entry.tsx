@@ -35,7 +35,7 @@ export function GameEntry({accountName,onAccount,name,avatar,code,tab,busy,initi
    {tab==='join'&&<><label className="field-label" htmlFor="roomcode">邀请码</label><input id="roomcode" value={code} onChange={e=>onCode(e.target.value.toUpperCase().replace(/[^A-Z2-9]/g,''))} disabled={busy} placeholder="4 位邀请码" maxLength={8}/></>}
    <Button className="primary-button full" disabled={!onlineReady||tab==='join'&&!validRoomCode(code)} onClick={()=>onOnline(tab==='join'?'join':'create')}>{busy?'正在入座…':tab==='join'?'加入房间':'创建房间'}</Button>
   </div>}
-  {mode==='solo'&&<div className="mode-options" aria-label="单人模式操作"><Button className="primary-button full" disabled={!identityReady||busy} onClick={()=>onLocal('solo',false)}>开始游戏</Button></div>}
+  {mode==='solo'&&<div className="mode-options" aria-label="单人模式操作"><Button className="primary-button full" disabled={!identityReady||busy} onClick={()=>onLocal('solo',false)}>进入单人牌桌</Button></div>}
   {mode==='learn'&&<div className="mode-options" aria-label="新手模式操作"><Button className="primary-button full" disabled={!identityReady||busy} onClick={()=>onLocal('learn',false)}>开始教学</Button></div>}
  </section>
 }
