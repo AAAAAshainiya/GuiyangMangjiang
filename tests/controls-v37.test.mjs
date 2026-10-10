@@ -68,6 +68,7 @@ for(const t of THEMES){
  const actions=element('div',{className:'table-action-buttons'},element('div',{className:'table-actions'},table));
  for(const name of ['action-button','action-button hu-button','action-button pass-button'])cases[name]=button(actions,{className:name});
  cases.next=button(element('div',{className:'next-round'},element('div',{className:'round-next-panel'},table)));
+ cases.settlementSocial=button(element('div',{className:'round-next-actions'},element('div',{className:'round-next-panel'},table)),{variant:'outline',className:'settlement-social-toggle'});
  cases.mode=element('button',{className:'mode-choice selected'},card);
  cases.modePlain=element('button',{className:'mode-choice'},card);
  const routes=element('div',{className:'entry-route-picker'},card);cases.route=element('button',{'aria-pressed':false},routes);cases.routeSelected=element('button',{'aria-pressed':true},routes);
