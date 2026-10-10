@@ -5,11 +5,11 @@ export const SOLO_IDLE_MS=60000;
 // All game state and its clock stay in this browser, never in an online room.
 export class SoloGame{
  room:Room;pausedAt:number|null=null;lastActivityAt:number;pauseReason:'manual'|'idle'|'restore'|null=null;
- constructor(name='单人牌友',avatar='🐼',now=Date.now(),fast=false,rules:GameRules=defaultRules(),accountOwner?:string,recordReplay=false){
+ constructor(name='单人牌友',avatar='🐼',now=Date.now(),fast=false,rules:GameRules=defaultRules(),accountOwner?:string,recordReplay=false,autoStart=true){
   this.lastActivityAt=now;
   this.room=create('SOLO','solo',name);this.room.fast=fast;this.room.players[0].avatar=avatar;this.room.rules=rules;this.room.accountOwner=accountOwner;this.room.nextReplayEnabled=!!accountOwner&&recordReplay;
   for(let i=0;i<3;i++)this.room.players.push(player('bot:solo'+i,nextBotName(this.room.players),true));
-  this.room.players[0].ready=true;start(this.room,now);this.room.version=0;this.room.playVersion=0;
+  this.room.players[0].ready=true;if(autoStart)start(this.room,now);else this.room.logs=['单人牌桌已准备好，点击开始游戏后发牌。'];this.room.version=0;this.room.playVersion=0;
  }
  bump(){this.room.version=(this.room.version??0)+1;this.room.playVersion=this.room.version}
  waitingForYou(){return this.room.phase==='play'&&this.room.turn===0||this.room.phase==='claim'&&!!this.room.claim?.choices[0]&&!this.room.claim.answers[0]}
@@ -28,7 +28,7 @@ export class SoloGame{
   if(action==='rules'){setRoomRules(this.room,0,rules);this.bump();return}
   if(action==='pause'){this.pause(now);return}if(action==='continue'){this.resume(now);return}
   if(this.pausedAt!==null)throw new Error('牌局已暂停，继续后再操作');
-  if(action==='ready'||action==='start'){if(this.room.phase!=='done')throw new Error('本局尚未结束');this.room.players[0].ready=true;start(this.room,now)}
+  if(action==='ready'||action==='start'){if(!['lobby','done'].includes(this.room.phase))throw new Error('本局尚未结束');this.room.players[0].ready=true;start(this.room,now)}
   else if(action==='speed'){if(!['play','done','lobby'].includes(this.room.phase)||tile!==0&&tile!==1)throw new Error('当前不能切换节奏');this.room.fast=tile===1;if(this.room.phase==='play'&&this.room.players[this.room.turn].bot)this.room.deadline=now+(this.room.fast?500:2000)}
   else if(action==='resume'){this.room.players[0].managed=false}
   else act(this.room,0,action,tile,now);
@@ -37,10 +37,10 @@ export class SoloGame{
  detachAccount(){this.room.accountOwner=undefined;this.room.replay=undefined;this.room.replayEnabled=false;this.room.nextReplayEnabled=false;this.bump()}
  serialize(now=Date.now()){return JSON.stringify({room:this.room,pausedAt:this.pausedAt,pauseReason:this.pauseReason,savedAt:now,remainingMs:Math.max(0,this.room.deadline-(this.pausedAt??now))})}
  static restore(value:string|null,now=Date.now()){
-  try{const v=JSON.parse(value??'null'),r=v?.room;if(r?.code!=='SOLO'||r.host!=='solo'||r.players?.length!==4||r.players[0].id!=='solo'||r.players.slice(1).some((p:any)=>!p.bot)||!['play','claim','done'].includes(r.phase)||!Array.isArray(r.wall)||r.wall.length>108||r.players.some((p:any)=>!Array.isArray(p.hand)||p.hand.length>14||p.hand.some((t:any)=>!Number.isInteger(t)||t<0||t>26))||!Number.isFinite(v.remainingMs)||v.remainingMs<0||v.remainingMs>45000)return null;
+  try{const v=JSON.parse(value??'null'),r=v?.room;if(r?.code!=='SOLO'||r.host!=='solo'||r.players?.length!==4||r.players[0].id!=='solo'||r.players.slice(1).some((p:any)=>!p.bot)||!['lobby','play','claim','done'].includes(r.phase)||!Array.isArray(r.wall)||r.wall.length>108||r.players.some((p:any)=>!Array.isArray(p.hand)||p.hand.length>14||p.hand.some((t:any)=>!Number.isInteger(t)||t<0||t>26))||!Number.isFinite(v.remainingMs)||v.remainingMs<0||v.remainingMs>45000)return null;
    const game=Object.create(SoloGame.prototype) as SoloGame;game.room=r;
    // Restore active games paused, so refresh never spends the player's time.
-   game.pausedAt=r.phase==='done'?null:now;game.pauseReason=r.phase==='done'?null:'restore';game.lastActivityAt=now;r.players[0].managed=false;r.deadline=r.phase==='done'?0:now+v.remainingMs;game.bump();return game;
+   const active=['play','claim'].includes(r.phase);game.pausedAt=active?now:null;game.pauseReason=active?'restore':null;game.lastActivityAt=now;r.players[0].managed=false;r.deadline=active?now+v.remainingMs:0;game.bump();return game;
   }catch{return null}
  }
 }

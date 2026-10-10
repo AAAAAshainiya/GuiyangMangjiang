@@ -82,7 +82,10 @@ console.log('PASS: v13 actual beginner page opens and plays with zero online req
 slots=[];slots[0]=null;effects.length=0;onlineCalls=0;render({solo:true});effects.find(fn=>fn.toString().includes('searchParams.get'))();
 assert.equal(slots[0].solo,true);assert.equal(onlineCalls,0);
 let soloNodes=nodes(render({solo:true}));assert(!soloNodes.some(n=>n.type===ChatPanel));assert(!soloNodes.some(n=>n.props?.['aria-label']==='复制邀请码'));
-const soloControls=soloNodes.find(n=>n.props?.onAction&&n.props?.onRules);assert(soloControls);soloControls.props.onAction('pause');await new Promise(setImmediate);assert.equal(slots[0].paused,true);
+const soloControls=soloNodes.find(n=>n.props?.onAction&&n.props?.onRules);assert(soloControls);
+assert.equal(slots[0].phase,'lobby');assert.equal(slots[0].round,0);assert(slots[0].players.every(p=>p.count===0));
+const beginSolo=soloNodes.find(n=>n.props?.className==='primary-button solo-start-button');assert(beginSolo);beginSolo.props.onClick();await new Promise(setImmediate);assert.equal(slots[0].phase,'play');assert.equal(slots[0].round,1);
+soloControls.props.onAction('pause');await new Promise(setImmediate);assert.equal(slots[0].paused,true);
 assert.match(renderToStaticMarkup(render({solo:true})),/牌局已暂停/);soloNodes=nodes(render({solo:true}));assert(soloNodes.filter(n=>n.props?.onClick&&n.props?.t!==undefined).every(n=>n.props.disabled));
 soloControls.props.onAction('continue');await new Promise(setImmediate);assert.equal(slots[0].paused,false);assert.equal(onlineCalls,0);
 console.log('PASS: actual solo page runs without HTTP, pauses, locks hand and resumes locally.');
@@ -145,7 +148,29 @@ accountFixture.accept=u=>{accountFixture.user=u};accountFixture.user={id:'logout
 slots=[];slots[0]={...room,phase:'play',turn:0,drawn:0,remaining:50,players:room.players.map(p=>({...p,hand:[0],charges:[]}))};effects.length=0;let logoutPosts=0;transport=async()=>{logoutPosts++;return {left:true}};
 let accountButton=nodes(render()).find(n=>n.props?.onLogout);await assert.rejects(accountButton.props.onLogout(),/进行中/);assert.equal(logoutPosts,0);assert.equal(accountFixture.user.id,'logout-owner');
 slots[0]={...room,phase:'lobby'};accountButton=nodes(render()).find(n=>n.props?.onLogout);await accountButton.props.onLogout();assert.equal(logoutPosts,1);assert.equal(accountFixture.user,null);assert.equal(slots[0],null);
-accountFixture.user={id:'logout-owner',nickname:'退出测试',avatar:'🐼',rules:game.defaultRules()};slots=[];slots[0]=null;effects.length=0;context.location.href='https://example.test/solo';render({solo:true});effects.find(fn=>fn.toString().includes('selectedFast'))();let ownerGame=slots.find(v=>v?.current instanceof solo.SoloGame).current;ownerGame.human('recordReplay',1);pageStorage.set('mahjong-solo',ownerGame.serialize());accountButton=nodes(render({solo:true})).find(n=>n.props?.onLogout);await accountButton.props.onLogout();assert.equal(ownerGame.room.accountOwner,undefined);assert.equal(ownerGame.room.nextReplayEnabled,false);assert.equal(pageStorage.has('mahjong-solo'),false);assert.equal(accountFixture.user,null);
+accountFixture.user={id:'logout-owner',nickname:'退出测试',avatar:'🐼',rules:game.defaultRules()};slots=[];slots[0]=null;effects.length=0;context.location.href='https://example.test/solo';render({solo:true});effects.find(fn=>fn.toString().includes('selectedFast'))();let ownerGame=slots.find(v=>v?.current instanceof solo.SoloGame).current;ownerGame.human('start');ownerGame.human('recordReplay',1);pageStorage.set('mahjong-solo',ownerGame.serialize());accountButton=nodes(render({solo:true})).find(n=>n.props?.onLogout);await accountButton.props.onLogout();assert.equal(ownerGame.room.accountOwner,undefined);assert.equal(ownerGame.room.nextReplayEnabled,false);assert.equal(pageStorage.has('mahjong-solo'),false);assert.equal(accountFixture.user,null);
 effects.length=0;render({solo:true});effects.find(fn=>fn.toString().includes('selectedFast'))();assert.equal(slots.find(v=>v?.current instanceof solo.SoloGame).current,ownerGame,'logout keeps the current round as a paused guest game');
 const legacyGuest=ownerGame.serialize();slots=[];slots[0]=null;effects.length=0;pageStorage.set('mahjong-solo',legacyGuest);render({solo:true});effects.find(fn=>fn.toString().includes('selectedFast'))();assert.equal(slots[0].history.length,0);assert.equal(slots[0].replayEnabled,false);assert.equal(pageStorage.has('mahjong-solo'),false,'reopened guest page never restores stored guest history');
 console.log('PASS v34: actual Home blocks active multi logout with feedback, leaves lobby before identity switch, solo logout detaches recording and resumes as guest, and a reopened guest page starts with empty history.');
+
+// v35 actual hand click callbacks: a second click discards only on a legal turn.
+for(const mode of [{},{solo:true},{training:true}]){
+ slots=[];effects.length=0;accountFixture.user=null;let moves=[];
+ if(mode.solo||mode.training){slots[0]=null;render(mode);effects.find(fn=>fn.toString().includes('selectedFast'))();if(mode.solo)nodes(render(mode)).find(n=>n.props?.className==='primary-button solo-start-button').props.onClick()}
+ const holder=slots.find(v=>v?.current instanceof (mode.solo?solo.SoloGame:training.TrainingGame));
+ let current;
+ if(mode.solo||mode.training){const localGame=holder.current;if(mode.training){localGame.intro=training.LESSON_STEPS.length;localGame.gate=false}localGame.room.turn=0;localGame.room.phase='play';localGame.room.claim=null;localGame.room.players[0].hand=[0,0,1,2,3,4,5,9,10,11,18,19,20,8];localGame.room.drawn=8;localGame.room.canKong=true;const originalHuman=localGame.human.bind(localGame);localGame.human=(...args)=>{moves.push(args);return originalHuman(...args)};slots[0]=localGame.snapshot()}
+ else{slots[0]={...room,round:1,phase:'play',turn:0,options:['discard'],drawnIndex:13,remaining:50,actionContext:'tap',players:room.players.map(p=>({...p,hand:[0,0,1,2,3,4,5,9,10,11,18,19,20,8],charges:[]}))};transport=async(url,init)=>{const body=JSON.parse(init.body);moves.push(body);return {...slots[0],phase:'claim',version:3,revision:3,options:[]}}}
+ const tileAt=index=>nodes(render(mode)).find(n=>n.props?.handIndex===index&&n.props.onClick);
+ tileAt(0).props.onClick();assert.equal(moves.length,0);assert.equal(tileAt(0).props.selected,true);
+ tileAt(1).props.onClick();assert.equal(moves.length,0,'another physical copy only changes selection');assert.equal(tileAt(1).props.selected,true);
+ // Deliberately use a later event, no double-click timer requirement.
+ tileAt(1).props.onClick();await new Promise(setImmediate);assert.equal(moves.length,1);assert.equal(mode.solo||mode.training?moves[0][0]:moves[0].action,'discard');
+}
+// Multiplayer preselection, paused/managed/pending states and the hint never discard.
+slots=[];effects.length=0;let tapMoves=[];slots[0]={...room,round:1,phase:'play',turn:1,options:[],remaining:50,players:room.players.map(p=>({...p,hand:[0,1,2],charges:[]})),suggestion:1};transport=async(url,init)=>{tapMoves.push(JSON.parse(init.body));return {...slots[0],phase:'claim',version:3,revision:3,options:[]}};
+const tapAt=i=>nodes(render()).find(n=>n.props?.handIndex===i&&n.props.onClick);tapAt(1).props.onClick();tapAt(1).props.onClick();assert.equal(tapMoves.length,0);
+slots[0]={...slots[0],turn:0,options:['discard']};let hint=nodes(render()).find(n=>n.props?.className==='hint-button');hint.props.onClick();assert.equal(tapMoves.length,0);
+slots[0]={...slots[0],paused:true};tapAt(1).props.onClick();assert.equal(tapMoves.length,0);slots[0]={...slots[0],paused:false};
+tapAt(1).props.onClick();await new Promise(setImmediate);assert.equal(tapMoves.length,1,'preselected tile can be confirmed when the turn arrives');
+console.log('PASS v35: actual solo waits for start, actual multi/solo/tutorial hand click callbacks select then discard, distinct duplicates, out-of-turn preselection, paused guards and hint-only selection.');

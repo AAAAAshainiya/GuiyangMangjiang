@@ -8,12 +8,17 @@ export const THEMES=[
  {id:'peach',name:'奶油蜜桃',description:'奶油与蜜桃 · 轻柔蜜桃按钮',page:'#FFF5E4',card:'#fffdf6',ink:'#56342e',muted:'#82554d',border:'#FFD1D1',felt:'#FF9494',light:'#FFE3E1',dark:'#d37878',hand:'#FFE3E1',tableText:'#482727',tableMuted:'#633939',accent:'#FF9494'},
 ].map(t=>({...t,buttonText:({rose:'#382529',sakura:'#482835',peach:'#482727'} as Record<string,string>)[t.id]??'#ffffff',chromeText:({rose:'#ffffff',sakura:'#482835',peach:'#482727'} as Record<string,string>)[t.id]??'#ffffff',disabled:'#e3e7ec',disabledText:'#53616e',texture:({
  jade:'none',
- midnight:'radial-gradient(circle at 20% 30%,#ffffff16 1px,transparent 2px),radial-gradient(circle at 70% 60%,#ffffff10 1px,transparent 2px)',
+ midnight:'none',
  grape:'repeating-linear-gradient(45deg,#ffffff07 0 1px,transparent 1px 9px)',
  walnut:'repeating-linear-gradient(92deg,#0000000b 0 1px,transparent 1px 11px,#ffffff05 11px 12px,transparent 12px 23px)',
- rose:'repeating-linear-gradient(0deg,#ffffff08 0 1px,transparent 1px 7px),repeating-linear-gradient(90deg,#ffffff05 0 1px,transparent 1px 7px)',
- sakura:'radial-gradient(ellipse at 15% 15%,#ffffff13 0 3px,transparent 4px),radial-gradient(ellipse at 80% 65%,#ffffff0d 0 4px,transparent 5px)',
+ rose:'none',
+ sakura:'none',
  peach:'repeating-linear-gradient(15deg,#ffffff12 0 1px,transparent 1px 6px)',
  } as Record<string,string>)[t.id]})) as readonly {id:'jade'|'midnight'|'grape'|'walnut'|'rose'|'sakura'|'peach',name:string,description:string,page:string,card:string,ink:string,muted:string,border:string,felt:string,light:string,dark:string,hand:string,tableText:string,tableMuted:string,accent:string,buttonText:string,chromeText:string,disabled:string,disabledText:string,texture:string}[];
 export type ThemeId=typeof THEMES[number]['id'];
 export function validTheme(value:unknown):value is ThemeId{return THEMES.some(t=>t.id===value)}
+// The server's first HTML and client previews use the same complete variables.
+export function themeStyle(id:ThemeId){
+ const theme=THEMES.find(t=>t.id===id)??THEMES[0];
+ return Object.fromEntries(Object.entries(theme).filter(([key])=>!['id','name','description'].includes(key)).map(([key,value])=>['--mj-'+key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase()),value]));
+}

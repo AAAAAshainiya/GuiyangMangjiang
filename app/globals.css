@@ -608,3 +608,9 @@ html[data-mj-theme]:not([data-mj-theme=jade]) :is(.table-top .fullscreen-button,
 
 /* Expand the containing dialog only to remove its transform/clip. Its content stays behind the opaque replay table. */
 .account-dialog:has(.replay-immersive){transform:none!important;translate:none!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100dvh!important;max-width:none!important;max-height:none!important;overflow:visible!important;border-radius:0!important}
+
+/* v35: keep all table overlays below portal dialogs, including immersive play. */
+.table-shell{isolation:isolate}
+body:has([data-slot="dialog-overlay"][data-state="open"]) .table-shell,
+body:has([data-slot="dialog-overlay"][data-state="open"]) .table-shell *{pointer-events:none!important}
+.solo-start-button{display:block;margin:18px auto 0;min-height:46px;padding:0 28px;font-size:17px;font-weight:700;pointer-events:auto}
