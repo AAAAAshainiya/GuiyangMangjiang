@@ -255,3 +255,22 @@ const beforeSkip=(await read(d,skipRoom.code)).data;assert(beforeSkip.options.in
  const seat=get(key).players.findIndex(p=>p.id===people[1].split('=')[1]);const tagged=get(key);tagged.players[seat].accountId='prior-owner';put(tagged);await call(people[1],{action:'leave',code:key});assert.equal(get(key).players[seat].accountId,undefined);
 }
 console.log('PASS v34: actual SQLite pregame logout leave, idempotent receipt, random human host transfer, started-game rejection and detached departing account.');
+
+// Patch: new declarations and claim stages use the existing atomic SQL receipts.
+{
+ const {people,code:key}=await managedTable(),r=get(key),now=Date.now();r.players.forEach(p=>p.ready=true);engine.start(r,now);r.turn=0;r.drawn=26;r.deadline=now+60000;r.openingHu=null;r.wall=[26,25,24,23];
+ const non=[0,2,4,6,8,9,11,13,15,18,20,22,24],flat=[0,1,2,3,4,5,10,11,12,21,22,23,16];
+ r.players.forEach(p=>{p.hand=[...non];p.river=[];p.melds=[]});r.players[0].hand.push(26);r.players[1].hand=[...flat];r.heavenWaits=r.players.map(p=>engine.waits(p));r.heavenEligible=r.heavenWaits.map(a=>!!a.length);r.heavenlyReady=[false,false,false,false];put(r);
+ const v=(await read(people[1],key)).data,body={action:'declareHeaven',code:key,version:v.version,context:v.actionContext,clientId:crypto.randomUUID()};assert(v.options.includes('declareHeaven'));
+ const declared=await call(people[1],body);assert(declared.players[1].heavenlyReady);assert.equal(declared.turn,0);assert.equal(declared.players[1].hand.length,13);assert.deepEqual((await read(people[0],key)).data.players[1].hand,[]);
+ const after=get(key);assert.equal(after.replay.frames.filter(f=>f.label.includes('声明天听')).length,1);await call(people[1],body);assert.equal(get(key).replay.frames.filter(f=>f.label.includes('声明天听')).length,1,'same receipt cannot declare twice');
+ const q=get(key);q.heavenlyReady=[false,false,false,false];q.heavenEligible=[false,false,false,false];q.players[0].hand.push(16);q.players[1].hand=[16,16,16,14,15,12,13,14,9,10,11,9,9];q.players[2].hand=[0,0,0,3,3,3,10,10,10,21,21,21,16];q.players[3].hand=[16,16,2,4,6,8,9,11,13,15,18,20,22];engine.act(q,0,'discard',16,Date.now());put(q);
+ const prior=(await read(people[3],key)).data;assert.equal(prior.claim.stage,'hu');assert.equal(prior.options.length,0);assert.equal((await response(people[3],{action:'peng',code:key,version:prior.version,context:prior.actionContext,clientId:crypto.randomUUID()})).status,400);
+ const first=(await read(people[1],key)).data,second=(await read(people[2],key)).data;
+ await call(people[1],{action:'pass',code:key,version:first.version,context:first.actionContext,clientId:crypto.randomUUID()});
+ const meld=await call(people[2],{action:'pass',code:key,version:second.version,context:second.actionContext,clientId:crypto.randomUUID()});assert.equal(meld.claim.stage,'meld');
+ const stale=await response(people[3],{action:'peng',code:key,version:prior.version,context:prior.actionContext,clientId:crypto.randomUUID()});assert.equal(stale.status,409);
+ const valid=(await read(people[3],key)).data;assert(valid.options.includes('peng'));await call(people[3],{action:'peng',code:key,version:valid.version,context:valid.actionContext,clientId:crypto.randomUUID()});
+ const remaining=(await read(people[1],key)).data;await call(people[1],{action:'pass',code:key,version:remaining.version,context:remaining.actionContext,clientId:crypto.randomUUID()});assert.equal(get(key).turn,3);assert.equal(get(key).players[3].melds[0].k,'peng');
+ console.log('PASS: patch real SQLite declaration idempotency/privacy, hu-stage peng rejection, unchanged other-seat context, stage-transition stale rejection and atomic meld completion.');
+}

@@ -1,4 +1,4 @@
 // Release signing keys: public only; private key stays in release session memory.
-export const CURRENT_VERSION = 43;
-export const CURRENT_ACTIVITY = "普通窗口结算区域高度恢复与互动布局修复";
-export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"CMpoI2KndwuVslX6wmNYztTas2g99b1C3XA-lH0Tq20","y":"BA_GmpV7obKiFl_UklbNUjz0RD7o4IYx-yrzHeUYyu8","crv":"P-256"};
+export const CURRENT_VERSION = 44;
+export const CURRENT_ACTIVITY = "天胡天听主动声明、先胡后碰杠与四家逐笔结算";
+export const RELEASE_PUBLIC_KEY: JsonWebKey = {"key_ops":["verify"],"ext":true,"kty":"EC","x":"SESWtdbvF0QR--VduD_PQtkNatmOQV02YE2xPOJRgnI","y":"f2eP75P36S6c14wBJoiQ4aJb1M2Slt67bpwMcL83Ar8","crv":"P-256"};

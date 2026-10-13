@@ -1,5 +1,7 @@
 export function settlementLedger(room:any){
- const r=room.result,me=room.me,items:{from:number,to:number,points:number,reason:string}[]=[];
+ const r=room.result,me=room.me;
+ if(r.settlementFormat===2&&Array.isArray(r.paymentItems)){const items:{from:number,to:number,points:number,reason:string}[]=r.paymentItems.filter((t:any)=>t.from===me||t.to===me),received=items.filter((t:any)=>t.to===me).reduce((n:number,t:any)=>n+t.points,0),paid=items.filter((t:any)=>t.from===me).reduce((n:number,t:any)=>n+t.points,0);return {items,received,paid,complete:received-paid===r.delta?.[me]}}
+ const items:{from:number,to:number,points:number,reason:string}[]=[];
  const add=(from:number,to:number,points:number,reason:string)=>{if(points>0&&(from===me||to===me))items.push({from,to,points,reason})};
  if(r.winner>=0){
   const total=r.huPayable??Math.abs(r.hu?.[r.winner]??0)/(r.from<0?3:1),hot=r.hotPenalty??0;

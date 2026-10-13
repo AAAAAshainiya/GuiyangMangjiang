@@ -1,4 +1,4 @@
-import {nextBotName,act,advance,create,setRoomRules,player,start,view,type Room} from './game';
+import {nextBotName,act,advance,options,create,setRoomRules,player,start,view,type Room} from './game';
 import {defaultRules,type GameRules} from './rules';
 export const SOLO_IDLE_MS=60000;
 
@@ -12,7 +12,7 @@ export class SoloGame{
   this.room.players[0].ready=true;if(autoStart)start(this.room,now);else this.room.logs=['单人牌桌已准备好，点击开始游戏后发牌。'];this.room.version=0;this.room.playVersion=0;
  }
  bump(){this.room.version=(this.room.version??0)+1;this.room.playVersion=this.room.version}
- waitingForYou(){return this.room.phase==='play'&&this.room.turn===0||this.room.phase==='claim'&&!!this.room.claim?.choices[0]&&!this.room.claim.answers[0]}
+ waitingForYou(){return this.room.phase==='play'&&this.room.turn===0||this.room.phase==='claim'&&options(this.room,0).length>0}
  activity(now=Date.now()){if(this.pausedAt!==null||!['play','claim'].includes(this.room.phase))return false;this.lastActivityAt=now;return true}
  snapshot(now=Date.now()){const v=view(this.room,'solo');return {...v,roundId:this.room.roundId,local:true,solo:true,paused:this.pausedAt!==null,pauseReason:this.pauseReason,waitingForYou:this.waitingForYou(),idleDeadline:this.lastActivityAt+SOLO_IDLE_MS,idleRemainingMs:Math.max(0,this.lastActivityAt+SOLO_IDLE_MS-(this.pausedAt??now)),remainingMs:Math.max(0,this.room.deadline-(this.pausedAt??now)),options:this.pausedAt!==null?[]:v.options,messages:[],interactions:[]}}
  tick(now=Date.now()){

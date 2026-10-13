@@ -12,7 +12,8 @@ export function coachNote(room:any,preview:any,selection:number|null,prompt:stri
   return {title:`${lesson.intro+1}/${LESSON_STEPS.length} · ${step.title}`,lines:lines.length?lines:[step.text],targets};
  }
  if(lesson.gate){const last=lesson.lastAction,offset=last?(last.seat-room.me+4)%4:0,meld=offset===0?'.my-meld':`.seat-${offset} .open-melds`,targets=last&&['gang','bu','peng'].includes(last.action)?[room.phase==='claim'?'.claim-banner':meld]:['.latest-discard'];if(room.waits.length)targets.push('.hand-caption b');return {title:lesson.explanation.title,lines:lesson.explanation.lines,targets};}
- if(room.phase==='claim'&&room.options.length)return {title:'选择碰、杠、胡或过牌',lines:prompt,targets:['.table-actions',`.hand-tiles [data-tile="${room.claim.t}"]`]};
+ if(room.phase==='play'&&room.turn!==room.me&&room.options.includes('declareHeaven'))return {title:'起手已听牌，可声明天听',lines:prompt,targets:['.table-actions']};
+ if(room.phase==='claim'&&room.options.length)return {title:room.claim?.stage==='hu'?'先选择胡牌或不胡':'选择碰、杠或过牌',lines:prompt,targets:['.table-actions',`.hand-tiles [data-tile="${room.claim.t}"]`]};
  if(room.phase==='play'&&room.turn===room.me){
   const index=selection??hand.indexOf(room.suggestion),lines=preview?[preview.reason,preview.after,...(preview.chicken?[preview.chicken]:[])]:prompt;
   return {title:selection===null?'先查看建议牌，再自己选择':'准备打 '+tileName(hand[selection]),lines,targets:[`[data-hand-index="${index}"]`,...(room.waits.length?['.hand-caption b']:['.action-bar'])]};
@@ -22,7 +23,7 @@ export function coachNote(room:any,preview:any,selection:number|null,prompt:stri
 }
 export function TableCoach({room,preview,selection,prompt,onNext,onTour,onFull}:{room:any,preview:any,selection:number|null,prompt:string[],onNext:()=>void,onTour:(index:number)=>void,onFull:()=>void}){
  const rail=useRef<HTMLElement>(null),[rects,setRects]=useState<{x:number,y:number,w:number,h:number}[]>([]),note=coachNote(room,preview,selection,prompt),intro=room.lesson.intro<LESSON_STEPS.length;
- const next=intro||room.lesson.gate||!room.options.length;
+ const next=intro||room.lesson.gate||!room.options.length||room.phase==='play'&&room.turn!==room.me;
  useEffect(()=>{
   const root=rail.current?.closest<HTMLElement>('.table-shell');if(!root)return;
   const measure=()=>{const bounds=root.getBoundingClientRect(),felt=root.querySelector<HTMLElement>('.felt'),clip=felt?.getBoundingClientRect();

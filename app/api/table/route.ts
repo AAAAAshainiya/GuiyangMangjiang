@@ -41,7 +41,7 @@ async function sendChat(r:Room,id:string,b:any,now:number){
  await db().prepare("DELETE FROM mahjong_chat WHERE code = ? AND id NOT IN (SELECT id FROM mahjong_chat WHERE code = ? ORDER BY at DESC, id DESC LIMIT 100)").bind(r.code,r.code).run();
  return reply(await visible(r,id));
 }
-const PLAY_ACTIONS=['discard','hu','skipHu','skipKong','peng','gang','bu','pass'];
+const PLAY_ACTIONS=['discard','declareHeaven','hu','skipHu','skipKong','peng','gang','bu','pass'];
 function receipt(r:Room,id:string,clientId:unknown){return r.actionReceipts?.find(a=>a.player===id&&a.id===clientId)}
 function signature(b:any){const fields=[b.action,b.tile??null,b.version??null,b.context??null,b.name??null];if(b.avatar!==undefined)fields.push(b.avatar);if(b.rules!==undefined)fields.push(b.rules);if(b.round!==undefined)fields.push(b.round);return JSON.stringify(fields)}
 function acknowledge(r:Room,id:string,clientId:string){return {clientId,status:receipt(r,id,clientId)?'applied':'not_found'}}

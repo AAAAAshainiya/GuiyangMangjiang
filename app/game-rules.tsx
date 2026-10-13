@@ -12,7 +12,7 @@ export const HU_EXAMPLES=[
  {key:'pure',name:'清一色',groups:[group([0,1,2]),group([3,4,5]),group([6,7,8]),group([1,2,3]),group([4,4])],hand:[0,1,2,3,4,5,6,7,8,1,2,3,4,4],melds:[],note:'手牌与碰杠全部只有一种花色。此例全是万，可接炮；可与其他成立的特殊牌型相加。'},
  {key:'seven',name:'七对',groups:[group([0,0]),group([2,2]),group([4,4]),group([10,10]),group([12,12]),group([18,18]),group([22,22])],hand:[0,0,2,2,4,4,10,10,12,12,18,18,22,22],melds:[],note:'不碰杠，十四张组成七个对子。可接炮。'},
  {key:'dragon',name:'龙七对',groups:[group([0,0,0,0],'四张相同'),group([4,4]),group([10,10]),group([12,12]),group([18,18]),group([22,22])],hand:[0,0,0,0,4,4,10,10,12,12,18,18,22,22],melds:[],note:'七对中含四张相同牌，四张可算两对。替代七对分，不重复加七对，也不按四张组数另加。'},
- {key:'heaven',name:'天听',groups:[group([0,1,2]),group([3,4,5]),group([10,11,12]),group([21,22,23]),group([16,16],'原有8筒＋胡进8筒')],hand:[0,1,2,3,4,5,10,11,12,21,22,23,16,16],melds:[],note:'最初发到的十三张已经听牌：此例起手只有一张8筒，听8筒。庄家额外第十四张不参与判定；可接炮，后续资格保留。'},
+ {key:'heaven',name:'天听',groups:[group([0,1,2]),group([3,4,5]),group([10,11,12]),group([21,22,23]),group([16,16],'原有8筒＋胡进8筒')],hand:[0,1,2,3,4,5,10,11,12,21,22,23,16,16],melds:[],note:'最初发到的十三张已经听牌，并主动声明：此例起手只有一张8筒，听8筒。庄家额外第十四张不参与判定。首出前可主动声明“天听”，向全场说明；听牌未变时可接炮，打出牌后听牌改变就取消资格。'},
  {key:'single',name:'单吊',groups:[group([0,0,0],'已碰'),group([3,3,3],'已碰'),group([10,10,10],'已碰'),group([21,21,21],'已碰'),group([16,16],'手牌：8筒单吊')],hand:[16,16],melds:[{t:0,k:'peng'},{t:3,k:'peng'},{t:10,k:'peng'},{t:21,k:'peng'}],note:'四组已经碰或杠，手里只剩一张，等同牌配对。只算单吊，不加大对子；清一色、杠开、天听仍可相加。'}
 ] as const;
 export function RuleTile({t}:{t:number}){return <span className="rule-tile"><img src={`/tiles/${t}.webp`} alt={tileName(t)} draggable={false}/><small>{tileName(t)}</small></span>}
@@ -31,8 +31,8 @@ export function RuleTables({rules=defaultRules()}:{rules?:GameRules}){
  ['翻鸡＋冲锋鸡',`每张收 ${charge}＋${flip}＝${charge+flip} 分`,`自己打出的每张赔 ${charge+flip} 分`,`${charge} 冲锋鸡＋${flip} 翻鸡，不再加普通固定鸡分。`]
  ]}/>
  <p className="rule-note">收鸡资格＝本局结束时胡牌／听牌，且没有放热炮。双方有资格时互相抵扣；双方没资格时互不收弃鸡罚分。碰按3张、杠按4张计算，暗杠也算本人持有鸡；完成暗杠后四张牌翻正面展示，仍按暗杠计豆。</p>
- <RuleTable title="③ 胡牌牌型与牌面例子" columns={['牌型','本项分数','完整牌面示例','成立条件／叠加']} rows={HU_EXAMPLES.map(e=>[e.name,`${hu[e.key]} 分`,<div className="rule-example" key={e.key}>{e.groups.map((g,i)=><span className="rule-example-group" key={i}><span>{g.tiles.map((t,j)=><img key={j} src={`/tiles/${t}.webp`} alt={tileName(t)} draggable={false}/>)}</span>{g.label&&<small>{g.label}</small>}</span>)}</div>,e.note])}/>
- <p className="rule-note">这些是牌型示例，不是当前玩家的手牌。特殊牌型相加：清一色大对子 {hu.pure}＋{hu.peng}＝{hu.pure+hu.peng}；清一色单吊 {hu.pure}＋{hu.single}＝{hu.pure+hu.single}。平胡只在没有特殊牌型时计算；龙七对替代七对；单吊替代大对子。</p>
+ <RuleTable title="③ 胡牌牌型与牌面例子" columns={['牌型','本项分数','完整牌面示例','成立条件／叠加']} rows={HU_EXAMPLES.map(e=>[e.name,`${hu[e.key]} 分`,<div className="rule-example" key={e.key}>{e.groups.map((g,i)=><span className="rule-example-group" key={i}><span>{g.tiles.map((t,j)=><img key={j} src={`/tiles/${t}.webp`} alt={tileName(t)} draggable={false}/>)}</span>{g.label&&<small>{g.label}</small>}</span>)}</div>,e.note]).concat([['天胡',`${hu.heaven} 分`,<div className="rule-example" key="heaven-hu">{HU_EXAMPLES[0].groups.map((g,i)=><span className="rule-example-group" key={i}><span>{g.tiles.map((t,j)=><img key={j} src={`/tiles/${t}.webp`} alt={tileName(t)}/>)}</span></span>)}</div>,'庄家开局原始十四张已成胡，专门按键显示天胡；与天听同分，替代天听，其他成立的特殊牌型仍可相加。']])}/>
+ <p className="rule-note">这些是牌型示例，不是当前玩家的手牌。特殊牌型相加：清一色大对子 {hu.pure}＋{hu.peng}＝{hu.pure+hu.peng}；清一色单吊 {hu.pure}＋{hu.single}＝{hu.pure+hu.single}。平胡只在没有特殊牌型时计算；龙七对替代七对；单吊替代大对子；天胡替代天听，两者不重复计分。天胡与天听共用“天听”分值设置。</p>
  <RuleTable title="④ 自摸、接炮、放炮：实际付多少" columns={['情况','谁付款','每家支付','胡分合计／例子']} rows={[
  ['自摸（含杠开）','另外三家各给赢家','各付牌型总分',`例如大对子：三家各付 ${peng}，赢家共收 ${peng*3} 分。`],
  ['接炮／普通放炮','仅放炮者给赢家','放炮者付牌型总分；其他两家0',`大对子放炮付 ${peng} 分。未听牌放炮仍付胡分。平胡无杠通常不能接炮。`],
@@ -40,7 +40,7 @@ export function RuleTables({rules=defaultRules()}:{rules?:GameRules}){
  ['流局查叫','每位未听牌者给每位听牌者','按听牌者可胡的最高牌型总分',`例如听牌者最高是清一色大对子 ${hu.pure}＋${hu.peng}＝${hu.pure+hu.peng}，每位未听牌者各付 ${hu.pure+hu.peng} 分。无杠平胡也属于听牌；不虚加杠开。鸡、豆和责任鸡为0。`],
  ['热炮','杠后补牌的第一张弃牌被胡，由放炮者付款',`牌型总分＋额外 ${r.hot} 分`,`大对子热炮付 ${peng}＋${r.hot}＝${peng+r.hot} 分；自己的鸡豆全部烧掉，仍付对方有效鸡豆。`]
  ]}/>
- <p className="rule-note">可自摸时可以选择“不胡，继续出牌”，不强制胡牌。以上列胡分与流局查叫，非流局的鸡豆和责任鸡另算。赢家自己的“胡”列为牌型总分，不是从三家收到的总额；最终赚亏＝实际胡净额＋豆净额＋鸡净额＋查叫净额＋责任鸡净额，四人合计为0。</p>
+ <p className="rule-note">他人弃牌时先由所有可胡者选择胡或不胡；全部不胡后才开放碰杠，同一人不胡后仍能碰杠。可自摸时可以选择“不胡，继续出牌”，不强制胡牌。以上列胡分与流局查叫，非流局的鸡豆和责任鸡另算。赢家自己的“胡”列为牌型总分，不是从三家收到的总额；最终赚亏＝实际胡净额＋豆净额＋鸡净额＋查叫净额＋责任鸡净额，四人合计为0。</p>
  <RuleTable title="⑤ 碰、明杠、暗杠、补杠：豆分" columns={['操作','谁付款','每家支付','杠者实际收入／自身豆值']} rows={[
  ['碰','无人','0 分','不产生豆分。'],
  ['明杠（用他人弃牌）','仅原出牌者',`${r.ming} 分`,`合计收 ${r.ming} 分；自身豆 ${r.ming}。`],
